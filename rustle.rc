@@ -1,0 +1,13 @@
+#[link(name = "rustle",
+       vers = "0.1",
+       uuid = "fdc4a956-acca-4eae-8372-b3ec62d5caa0",
+       url = "https://github.com/dbp/rustle")];
+
+#[comment = "Rust API search"];
+#[license = "MIT"];
+#[crate_type = "bin"];
+
+mod types;
+mod parse;
+mod load;
+mod query;
