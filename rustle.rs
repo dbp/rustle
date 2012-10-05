@@ -29,10 +29,10 @@ struct Arg { name: ~str, inner: ~[Arg] }
 
 impl Arg : cmp::Eq {
     pure fn eq(other: &Arg) -> bool { 
-        self.name == other.name && self.inner == other.inner
+        (self.name == other.name) && (self.inner == other.inner)
     }
     pure fn ne(other: &Arg) -> bool {
-        self.name != other.name || self.inner == other.inner
+        (self.name != other.name) || (self.inner != other.inner)
     }
 }
 
@@ -114,13 +114,13 @@ fn load_obj(obj: &Json) -> Definition {
     match *obj {
         Object(object) => {
             let ty = str_cast(object.get(&~"type"));
-
+            let (args, rv) = load_args(ty);
             Definition { name: str_cast(object.get(&~"name")),
                          path: str_cast(object.get(&~"path")),
                          anchor: str_cast(object.get(&~"anchor")),
                          desc: str_cast(object.get(&~"desc")),
-                         args: load_args(ty),
-                         ret: load_ret(ty),
+                         args: args,
+                         ret: rv,
                          signature: ty }
         }
         _ => {
@@ -132,19 +132,21 @@ fn load_obj(obj: &Json) -> Definition {
 }
 
 // load_args takes a string of a function and returns a list of the
-// argument types
-fn load_args(s: ~str) -> ~[Arg] {
+// argument types, and the return type
+fn load_args(s: ~str) -> (~[Arg], Arg) {
     let arg_str = trim_parens(s);
+    let ret = load_ret(s);
+    let args;
     if str::len(arg_str) == 0 {
-        return ~[];
+        args = ~[];
+    } else {
+        let argst = vec::map(str::split_char(arg_str, ','), 
+                            |x| {
+                                str::trim(str::split_char(*x, ':')[1])
+                            });
+        args = vec::map(argst, |x| { parse_arg(&trim_sigils(*x)) } );
     }
-    let argst = vec::map(str::split_char(arg_str, ','), 
-                        |x| {
-                            str::trim(str::split_char(*x, ':')[1])
-                        });
-    let args = vec::map(argst, |x| { parse_arg(&trim_sigils(*x)) } );
-
-    return canonicalize_args(args);
+    return canonicalize_args(args, ret);
 }
 
 // load_ret takes a string of a function and returns the return value
@@ -169,10 +171,10 @@ fn parse_arg(s: &~str) -> Arg {
     }
 }
 
-// canonicalize_args takes a list of arguments and replaces generic names
-// consistently (alphabetically, single uppercase letters, in order of 
-// frequency)
-fn canonicalize_args(args: ~[Arg]) -> ~[Arg] {
+// canonicalize_args takes a list of arguments and a return type 
+// and replaces generic names consistently (alphabetically, single 
+// uppercase letters, in order of frequency)
+fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg) {
     // The basic process is as follows:
     // 1. identify and count polymorphic params
     // 2. sort and assign new letters to them
@@ -194,6 +196,7 @@ fn canonicalize_args(args: ~[Arg]) -> ~[Arg] {
     }
     // identify / count parameters
     vec::map(args, |a| { walk_ids(*a,&identifiers) } );
+    walk_ids(ret, &identifiers);
     // put them in a vec
     let mut identifiers_vec : ~[(~str, uint)] = ~[];
     for identifiers.each |i,c| {
@@ -220,7 +223,8 @@ fn canonicalize_args(args: ~[Arg]) -> ~[Arg] {
                   inner: vec::map(a.inner, |x| { rename_arg(*x, n) })}
         }
     }
-    return vec::map(args, |a| { rename_arg(*a, &names) });
+    return (vec::map(args, |a| { rename_arg(*a, &names) }), 
+            rename_arg(ret,&names));
 }
 
 
@@ -251,11 +255,16 @@ fn bucket_drop(b: &Bucket, d: &Definition) {
 // query builds a Query from whatever was passed in on the commandline
 fn query(q: ~str) -> ~[Query] {
     let parts = vec::map(str::split_str(q, "->"), |x| { str::trim(*x) });
-    let rv = if vec::len(parts) < 2 { ~"()" } else { parts[1] };
+    let rv = if vec::len(parts) < 2 { 
+        Arg { name: ~"()", inner: ~[] } 
+    } else { 
+        parse_arg(&parts[1]) 
+    };
     let ars = vec::map(str::split_char(trim_parens(parts[0]), ','), 
                        |x| { parse_arg(&trim_sigils(*x)) });
     // just one for now
-    ~[Query {args: canonicalize_args(ars), ret: Arg {name: rv, inner: ~[]}}]
+    let (args, ret) = canonicalize_args(ars, rv);
+    ~[Query {args: args, ret: ret}]
 }
 
 // search looks for matches from the query in the data, and prints out
@@ -277,8 +286,7 @@ fn search(qs: ~[Query], d: Data) {
 fn search_bucket(b: Bucket, q: Query) {
     for vec::each(b.np0) |d| {
         if d.args == q.args && d.ret == q.ret {
-            io::println(fmt!("%?", d.args));
-            io::println(fmt!("%s::%s %s - %s", d.path, d.name, 
+            io::println(fmt!("%s::%s: %s - %s", d.path, d.name, 
                              d.signature, d.desc));
         }
     }
@@ -286,7 +294,7 @@ fn search_bucket(b: Bucket, q: Query) {
 
 // trim_sigils trims off the sigils off of types
 fn trim_sigils(s: ~str) -> ~str {
-    str::trim_left_chars(s, &[' ', '&', '~', '@'])
+    str::trim_left_chars(s, &[' ', '&', '~', '@', '+'])
 }
 
 fn trim_parens(s: ~str) -> ~str {
@@ -296,6 +304,15 @@ fn trim_parens(s: ~str) -> ~str {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn arg_eq() {
+        assert Arg { name: ~"uint", inner: ~[] } == Arg { name: ~"uint", inner: ~[] };
+        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] } 
+                 == Arg { name: ~"uint", inner: ~[] });
+        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] } 
+                 == Arg { name: ~"uint", inner: ~[Arg { name: ~"B", inner: ~[] }] });
+    }
 
     // #[test]
     // fn test_canonicalize_args() {
