@@ -28,7 +28,7 @@ fn main() {
 struct Arg { name: ~str, inner: ~[Arg] }
 
 impl Arg : cmp::Eq {
-    pure fn eq(other: &Arg) -> bool { 
+    pure fn eq(other: &Arg) -> bool {
         (self.name == other.name) && (self.inner == other.inner)
     }
     pure fn ne(other: &Arg) -> bool {
@@ -37,39 +37,39 @@ impl Arg : cmp::Eq {
 }
 
 // a query is a collection of definitions, ordered from most specific
-// to most general. they should all match something the user could be 
+// to most general. they should all match something the user could be
 // looking for.
 struct Query { args: ~[Arg], ret: Arg }
 
-// a Definition is what we are trying to match against. Note that 
-// definitions are not exactly unique, as they can be made more specific 
+// a Definition is what we are trying to match against. Note that
+// definitions are not exactly unique, as they can be made more specific
 // (ie, A,B -> C can be A A -> B, etc)
-struct Definition { name: ~str, path: ~str, anchor: ~str, desc: ~str, 
+struct Definition { name: ~str, path: ~str, anchor: ~str, desc: ~str,
                     args: ~[Arg], ret: Arg, signature: ~str }
 
-// A bucket holds a bunch of definitions, ordered by number of distinct 
-// non-polymorphic types, then by number of distinct polymorphic types, 
+// A bucket holds a bunch of definitions, ordered by number of distinct
+// non-polymorphic types, then by number of distinct polymorphic types,
 // for completely polymorphic functions.
-struct Bucket { mut np0: ~[Definition], mut np1: ~[Definition], 
-                mut np2: ~[Definition], mut npn: ~[Definition], 
-                mut p1: ~[Definition], mut p2: ~[Definition], 
+struct Bucket { mut np0: ~[Definition], mut np1: ~[Definition],
+                mut np2: ~[Definition], mut npn: ~[Definition],
+                mut p1: ~[Definition], mut p2: ~[Definition],
                 mut p3: ~[Definition], mut pn: ~[Definition] }
 
 // Data stores all the definitions in buckets, based on function arity.
-struct Data { mut ar0: Bucket, mut ar1: Bucket, mut ar2: Bucket, 
-              mut ar3: Bucket, mut ar4: Bucket, mut ar5: Bucket, 
+struct Data { mut ar0: Bucket, mut ar1: Bucket, mut ar2: Bucket,
+              mut ar3: Bucket, mut ar4: Bucket, mut ar5: Bucket,
               mut arn: Bucket }
 
 fn empty_data() -> Data {
     let empty_bucket = Bucket { np0: ~[], np1: ~[], np2: ~[],
-                                npn: ~[], p1: ~[], p2: ~[], 
+                                npn: ~[], p1: ~[], p2: ~[],
                                 p3: ~[], pn: ~[] };
-    Data { ar0: empty_bucket, ar1: empty_bucket, ar2: empty_bucket, 
-           ar3: empty_bucket, ar4: empty_bucket, ar5: empty_bucket, 
+    Data { ar0: empty_bucket, ar1: empty_bucket, ar2: empty_bucket,
+           ar3: empty_bucket, ar4: empty_bucket, ar5: empty_bucket,
            arn: empty_bucket}
 }
 
-// load parses a json file with all the data into the in-memory 
+// load parses a json file with all the data into the in-memory
 // representation above
 fn load(path: path::Path) -> Data {
     let res;
@@ -107,10 +107,13 @@ fn load(path: path::Path) -> Data {
     }
 }
 
-// load_obj loads a single object into a Definition, or fails if the json 
+// load_obj loads a single object into a Definition, or fails if the json
 // is not well formed
 fn load_obj(obj: &Json) -> Definition {
-    let str_cast : fn(Json) -> ~str = |j| { match j { String(s) => s, _ => fail ~"non-string" } };
+    let str_cast : fn(Json) -> ~str = |j| {
+        match j { String(s) => s,
+                  _ => fail ~"non-string" }
+        };
     match *obj {
         Object(object) => {
             let ty = str_cast(object.get(&~"type"));
@@ -140,11 +143,10 @@ fn load_args(s: ~str) -> (~[Arg], Arg) {
     if str::len(arg_str) == 0 {
         args = ~[];
     } else {
-        let argst = vec::map(str::split_char(arg_str, ','), 
-                            |x| {
-                                str::trim(str::split_char(*x, ':')[1])
-                            });
-        args = vec::map(argst, |x| { parse_arg(&trim_sigils(*x)) } );
+        let arg_strs = vec::map(split_arguments(arg_str), |a| {
+            str::splitn_char(*a, ':', 1)[1]
+        });
+        args = vec::map(arg_strs, |x| { parse_arg(&trim_sigils(*x)) } );
     }
     return canonicalize_args(args, ret);
 }
@@ -159,6 +161,28 @@ fn load_ret(s: ~str) -> Arg {
     }
 }
 
+// split arguments; note that because commas
+// can appear in parametric types, ie Either<A,B>,
+// we need to handle this a little more carefully
+fn split_arguments(a: ~str) -> ~[~str] {
+    let mut arg_strs : ~[~str] = ~[];
+    let mut level = 0;
+    let mut start = 0;
+    // add a trailing comma so we pick up the last argument
+    for str::each_chari(str::append(a, ~",")) |i,c| {
+        match c {
+            ',' if level == 0 => {
+                arg_strs.push(str::trim(str::slice(a,start,i)));
+                start = i+1;
+            }
+            '<' => level += 1,
+            '>' => level -= 1,
+            _ => {}
+        }
+    }
+    return arg_strs;
+}
+
 // parse_arg takes a string and turns it into an Arg
 fn parse_arg(s: &~str) -> Arg {
     let ps = str::split_char(str::trim(*s), '<');
@@ -166,13 +190,13 @@ fn parse_arg(s: &~str) -> Arg {
         // non-parametrized type
         return Arg { name: copy *s, inner: ~[] };
     } else {
-        let params = str::split_char(str::split_char(ps[1], '>')[0],',');
+        let params = split_arguments(str::split_char(ps[1], '>')[0]);
         return Arg { name: ps[0], inner: vec::map(params, parse_arg)};
     }
 }
 
-// canonicalize_args takes a list of arguments and a return type 
-// and replaces generic names consistently (alphabetically, single 
+// canonicalize_args takes a list of arguments and a return type
+// and replaces generic names consistently (alphabetically, single
 // uppercase letters, in order of frequency)
 fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg) {
     // The basic process is as follows:
@@ -203,7 +227,7 @@ fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg) {
         identifiers_vec.push((i,c));
     }
     // sort the vec
-    let identifiers_sorted = 
+    let identifiers_sorted =
         sort::merge_sort(|x,y| { x.second() >= y.second() }, identifiers_vec);
     // new name assignments
     let names : HashMap<~str,~str> = HashMap();
@@ -216,14 +240,14 @@ fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg) {
     // now rename args
     fn rename_arg(a: Arg, n: &HashMap<~str,~str>) -> Arg {
         if n.contains_key(a.name) {
-            Arg { name: n.get(a.name), 
+            Arg { name: n.get(a.name),
                   inner: vec::map(a.inner, |x| { rename_arg(*x, n) })}
         } else {
-            Arg { name: a.name, 
+            Arg { name: a.name,
                   inner: vec::map(a.inner, |x| { rename_arg(*x, n) })}
         }
     }
-    return (vec::map(args, |a| { rename_arg(*a, &names) }), 
+    return (vec::map(args, |a| { rename_arg(*a, &names) }),
             rename_arg(ret,&names));
 }
 
@@ -255,12 +279,12 @@ fn bucket_drop(b: &Bucket, d: &Definition) {
 // query builds a Query from whatever was passed in on the commandline
 fn query(q: ~str) -> ~[Query] {
     let parts = vec::map(str::split_str(q, "->"), |x| { str::trim(*x) });
-    let rv = if vec::len(parts) < 2 { 
-        Arg { name: ~"()", inner: ~[] } 
-    } else { 
-        parse_arg(&parts[1]) 
+    let rv = if vec::len(parts) < 2 {
+        Arg { name: ~"()", inner: ~[] }
+    } else {
+        parse_arg(&parts[1])
     };
-    let ars = vec::map(str::split_char(trim_parens(parts[0]), ','), 
+    let ars = vec::map(split_arguments(trim_parens(parts[0])),
                        |x| { parse_arg(&trim_sigils(*x)) });
     // just one for now
     let (args, ret) = canonicalize_args(ars, rv);
@@ -286,7 +310,7 @@ fn search(qs: ~[Query], d: Data) {
 fn search_bucket(b: Bucket, q: Query) {
     for vec::each(b.np0) |d| {
         if d.args == q.args && d.ret == q.ret {
-            io::println(fmt!("%s::%s: %s - %s", d.path, d.name, 
+            io::println(fmt!("%s::%s: %s - %s", d.path, d.name,
                              d.signature, d.desc));
         }
     }
@@ -308,23 +332,23 @@ mod tests {
     #[test]
     fn arg_eq() {
         assert Arg { name: ~"uint", inner: ~[] } == Arg { name: ~"uint", inner: ~[] };
-        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] } 
+        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] }
                  == Arg { name: ~"uint", inner: ~[] });
-        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] } 
+        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] }
                  == Arg { name: ~"uint", inner: ~[Arg { name: ~"B", inner: ~[] }] });
     }
 
     // #[test]
     // fn test_canonicalize_args() {
-    //     assert canonicalize_args(~[~"str", ~"uint", ~"str"]) 
+    //     assert canonicalize_args(~[~"str", ~"uint", ~"str"])
     //            == ~[~"str", ~"uint", ~"str"];
-    //     assert canonicalize_args(~[~"str", ~"T", ~"str"]) 
+    //     assert canonicalize_args(~[~"str", ~"T", ~"str"])
     //            == ~[~"str", ~"A", ~"str"];
-    //     assert canonicalize_args(~[~"str", ~"T", ~"T"]) 
+    //     assert canonicalize_args(~[~"str", ~"T", ~"T"])
     //            == ~[~"str", ~"A", ~"A"];
-    //     assert canonicalize_args(~[~"U", ~"T", ~"T"]) 
+    //     assert canonicalize_args(~[~"U", ~"T", ~"T"])
     //            == ~[~"B", ~"A", ~"A"];
-    //     assert canonicalize_args(~[~"U", ~"T", ~"V"]) 
+    //     assert canonicalize_args(~[~"U", ~"T", ~"V"])
     //            == ~[~"A", ~"B", ~"C"];
     // }
 
