@@ -1,6 +1,9 @@
 extern mod std;
 use std::json;
 use std::json::*;
+use std::map;
+use std::map::HashMap;
+use std::sort;
 
 fn main() {
     let args = os::args();
@@ -20,16 +23,29 @@ fn main() {
     search(querys, data);
 }
 
+// an Arg is a name, like str or Option, and then an optional list
+// of parameters. ex: Option<T> is "Option", ["T"] (roughly).
+struct Arg { name: ~str, inner: ~[Arg] }
+
+impl Arg : cmp::Eq {
+    pure fn eq(other: &Arg) -> bool { 
+        self.name == other.name && self.inner == other.inner
+    }
+    pure fn ne(other: &Arg) -> bool {
+        self.name != other.name || self.inner == other.inner
+    }
+}
+
 // a query is a collection of definitions, ordered from most specific
 // to most general. they should all match something the user could be 
 // looking for.
-struct Query { args: ~[~str], ret: ~str }
+struct Query { args: ~[Arg], ret: Arg }
 
 // a Definition is what we are trying to match against. Note that 
 // definitions are not exactly unique, as they can be made more specific 
 // (ie, A,B -> C can be A A -> B, etc)
 struct Definition { name: ~str, path: ~str, anchor: ~str, desc: ~str, 
-                    args: ~[~str], ret: ~str }
+                    args: ~[Arg], ret: Arg, signature: ~str }
 
 // A bucket holds a bunch of definitions, ordered by number of distinct 
 // non-polymorphic types, then by number of distinct polymorphic types, 
@@ -98,12 +114,14 @@ fn load_obj(obj: &Json) -> Definition {
     match *obj {
         Object(object) => {
             let ty = str_cast(object.get(&~"type"));
+
             Definition { name: str_cast(object.get(&~"name")),
                          path: str_cast(object.get(&~"path")),
                          anchor: str_cast(object.get(&~"anchor")),
                          desc: str_cast(object.get(&~"desc")),
                          args: load_args(ty),
-                         ret: load_ret(ty) }
+                         ret: load_ret(ty),
+                         signature: ty }
         }
         _ => {
             io::println("json definitions must be objects");
@@ -115,27 +133,96 @@ fn load_obj(obj: &Json) -> Definition {
 
 // load_args takes a string of a function and returns a list of the
 // argument types
-fn load_args(s: ~str) -> ~[~str] {
+fn load_args(s: ~str) -> ~[Arg] {
     let arg_str = trim_parens(s);
     if str::len(arg_str) == 0 {
         return ~[];
     }
-    let args = vec::map(str::split_char(arg_str, ','), 
+    let argst = vec::map(str::split_char(arg_str, ','), 
                         |x| {
                             str::trim(str::split_char(*x, ':')[1])
                         });
-    vec::map(args, |x| { trim_sigils(*x)} )
+    let args = vec::map(argst, |x| { parse_arg(&trim_sigils(*x)) } );
+
+    return canonicalize_args(args);
 }
 
 // load_ret takes a string of a function and returns the return value
-fn load_ret(s: ~str) -> ~str {
+fn load_ret(s: ~str) -> Arg {
     let st = str::split_str(s, "-> ");
-    if vec::len(st) < 2 {
-        ~"()"
+    if vec::len(st) == 1 {
+        Arg { name: ~"()", inner: ~[] }
     } else {
-        str::trim(st[1])
+        parse_arg(&str::trim(st[1]))
     }
 }
+
+// parse_arg takes a string and turns it into an Arg
+fn parse_arg(s: &~str) -> Arg {
+    let ps = str::split_char(str::trim(*s), '<');
+    if vec::len(ps) == 1 {
+        // non-parametrized type
+        return Arg { name: copy *s, inner: ~[] };
+    } else {
+        let params = str::split_char(str::split_char(ps[1], '>')[0],',');
+        return Arg { name: ps[0], inner: vec::map(params, parse_arg)};
+    }
+}
+
+// canonicalize_args takes a list of arguments and replaces generic names
+// consistently (alphabetically, single uppercase letters, in order of 
+// frequency)
+fn canonicalize_args(args: ~[Arg]) -> ~[Arg] {
+    // The basic process is as follows:
+    // 1. identify and count polymorphic params
+    // 2. sort and assign new letters to them
+    // 3. replace names
+
+    let identifiers : HashMap<~str, uint> = HashMap();
+    fn walk_ids(a: Arg, m: &HashMap<~str, uint>) {
+        match m.find(a.name) {
+            None => {
+                if str::len(a.name) == 1 {
+                    m.insert(a.name, 1);
+                } else {
+                    // not counting other types currently
+                }
+            }
+            Some(n) => { m.insert(a.name, n+1); }
+        }
+        vec::map(a.inner, |x| { walk_ids(*x, m) } );
+    }
+    // identify / count parameters
+    vec::map(args, |a| { walk_ids(*a,&identifiers) } );
+    // put them in a vec
+    let mut identifiers_vec : ~[(~str, uint)] = ~[];
+    for identifiers.each |i,c| {
+        identifiers_vec.push((i,c));
+    }
+    // sort the vec
+    let identifiers_sorted = 
+        sort::merge_sort(|x,y| { x.second() >= y.second() }, identifiers_vec);
+    // new name assignments
+    let names : HashMap<~str,~str> = HashMap();
+    let letters = str::chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    let mut n = 0;
+    for vec::each(identifiers_sorted) |p| {
+        names.insert(p.first(), str::from_char(letters[n]));
+        n += 1;
+    }
+    // now rename args
+    fn rename_arg(a: Arg, n: &HashMap<~str,~str>) -> Arg {
+        if n.contains_key(a.name) {
+            Arg { name: n.get(a.name), 
+                  inner: vec::map(a.inner, |x| { rename_arg(*x, n) })}
+        } else {
+            Arg { name: a.name, 
+                  inner: vec::map(a.inner, |x| { rename_arg(*x, n) })}
+        }
+    }
+    return vec::map(args, |a| { rename_arg(*a, &names) });
+}
+
 
 // bucket_sort takes defitions and builds the Data structure, by putting them
 // into the appropriate buckets
@@ -165,9 +252,10 @@ fn bucket_drop(b: &Bucket, d: &Definition) {
 fn query(q: ~str) -> ~[Query] {
     let parts = vec::map(str::split_str(q, "->"), |x| { str::trim(*x) });
     let rv = if vec::len(parts) < 2 { ~"()" } else { parts[1] };
-    let ars = vec::map(str::split_char(trim_parens(parts[0]), ','), |x| { trim_sigils(*x) });
+    let ars = vec::map(str::split_char(trim_parens(parts[0]), ','), 
+                       |x| { parse_arg(&trim_sigils(*x)) });
     // just one for now
-    ~[Query {args: ars, ret: rv}]
+    ~[Query {args: canonicalize_args(ars), ret: Arg {name: rv, inner: ~[]}}]
 }
 
 // search looks for matches from the query in the data, and prints out
@@ -189,8 +277,9 @@ fn search(qs: ~[Query], d: Data) {
 fn search_bucket(b: Bucket, q: Query) {
     for vec::each(b.np0) |d| {
         if d.args == q.args && d.ret == q.ret {
-            io::println(fmt!("%s::%s %s -> %s - %s", d.path, d.name, 
-                             str::connect(d.args, ", "), d.ret, d.desc));
+            io::println(fmt!("%?", d.args));
+            io::println(fmt!("%s::%s %s - %s", d.path, d.name, 
+                             d.signature, d.desc));
         }
     }
 }
@@ -202,4 +291,44 @@ fn trim_sigils(s: ~str) -> ~str {
 
 fn trim_parens(s: ~str) -> ~str {
     str::trim(str::split_char(str::split_char(s, '(')[1], ')')[0])
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    // #[test]
+    // fn test_canonicalize_args() {
+    //     assert canonicalize_args(~[~"str", ~"uint", ~"str"]) 
+    //            == ~[~"str", ~"uint", ~"str"];
+    //     assert canonicalize_args(~[~"str", ~"T", ~"str"]) 
+    //            == ~[~"str", ~"A", ~"str"];
+    //     assert canonicalize_args(~[~"str", ~"T", ~"T"]) 
+    //            == ~[~"str", ~"A", ~"A"];
+    //     assert canonicalize_args(~[~"U", ~"T", ~"T"]) 
+    //            == ~[~"B", ~"A", ~"A"];
+    //     assert canonicalize_args(~[~"U", ~"T", ~"V"]) 
+    //            == ~[~"A", ~"B", ~"C"];
+    // }
+
+    // #[test]
+    // fn test_parameterized_args() {
+    //     assert canonicalize_args(~[~"Option<T>", ~"T"]) == ~[~"Option<A>", ~"A"];
+    //     assert canonicalize_args(~[~"~[T]", ~"T"]) == ~[~"~[A]", ~"A"];
+    // }
+
+    #[test]
+    fn test_trim_parens() {
+        assert trim_parens(~"(hello)") == ~"hello";
+        assert trim_parens(~"  (   hello)") == ~"hello";
+        assert trim_parens(~"  (   hello )  ") == ~"hello";
+    }
+
+    #[test]
+    fn test_trim_sigils() {
+        assert trim_sigils(~"~str") == ~"str";
+        assert trim_sigils(~"@str") == ~"str";
+        assert trim_sigils(~"str") == ~"str";
+        assert trim_sigils(~"& str") == ~"str";
+    }
 }
