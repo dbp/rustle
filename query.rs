@@ -10,7 +10,7 @@ pub fn query(q: ~str) -> ~[Query] {
     } else {
         parse_arg(&parts[1], q)
     };
-    let ars = vec::map(split_arguments(trim_parens(parts[0])),
+    let ars = vec::map(split_arguments(parts[0]),
                        |x| { parse_arg(&trim_sigils(*x), q) });
     // just one for now
     let (args, ret) = canonicalize_args(ars, rv);
