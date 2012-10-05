@@ -44,7 +44,7 @@ pub fn parse_arg(su: &~str, ctx: ~str) -> Arg {
                 // we drop any modifiers, like const, mut, etc.
                 for [~"const", ~"mut"].each |m| {
                     if option::is_some(&str::find_str(vs, *m)) {
-                        vs = str::slice(s, str::len(*m), end-1);
+                        vs = str::trim(str::slice(s, str::len(*m)+1, end));
                     }
                 }
                 return Arg { name: ~"[]",
