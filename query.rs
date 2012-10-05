@@ -8,10 +8,10 @@ pub fn query(q: ~str) -> ~[Query] {
     let rv = if vec::len(parts) < 2 {
         Arg { name: ~"()", inner: ~[] }
     } else {
-        parse_arg(&parts[1])
+        parse_arg(&parts[1], q)
     };
     let ars = vec::map(split_arguments(trim_parens(parts[0])),
-                       |x| { parse_arg(&trim_sigils(*x)) });
+                       |x| { parse_arg(&trim_sigils(*x), q) });
     // just one for now
     let (args, ret) = canonicalize_args(ars, rv);
     ~[Query {args: args, ret: ret}]

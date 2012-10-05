@@ -45,3 +45,15 @@ fn empty_data() -> Data {
            ar3: empty_bucket, ar4: empty_bucket, ar5: empty_bucket,
            arn: empty_bucket}
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn arg_eq() {
+        assert Arg { name: ~"uint", inner: ~[] } == Arg { name: ~"uint", inner: ~[] };
+        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] }
+                 == Arg { name: ~"uint", inner: ~[] });
+        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] }
+                 == Arg { name: ~"uint", inner: ~[Arg { name: ~"B", inner: ~[] }] });
+    }
+}

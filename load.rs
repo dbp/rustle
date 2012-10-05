@@ -70,28 +70,32 @@ fn load_obj(obj: &Json) -> Definition {
 // load_args takes a string of a function and returns a list of the
 // argument types, and the return type
 fn load_args(s: ~str) -> (~[Arg], Arg) {
-    let arg_str = trim_parens(s);
-    let ret = load_ret(s);
+    let args_ret = str::split_str(s, "->");
+    let mut arlen = vec::len(args_ret);
+    let ret;
+    if vec::len(args_ret) == 1 {
+        arlen += 1;
+        ret = Arg { name: ~"()", inner: ~[] };
+    } else {
+        ret = parse_arg(&str::trim(args_ret[arlen-1]), s);
+    }
+    let arg_str = trim_parens(str::connect(vec::view(args_ret, 0, arlen-1), "->"));
     let args;
     if str::len(arg_str) == 0 {
         args = ~[];
     } else {
         let arg_strs = vec::map(split_arguments(arg_str), |a| {
-            str::splitn_char(*a, ':', 1)[1]
+            let t = str::splitn_char(*a, ':', 1);
+            if vec::len(t) < 2 {
+                error!("%s", s);
+                error!("%s", arg_str);
+                error!("%?", t);
+            }
+            t[1]
         });
-        args = vec::map(arg_strs, |x| { parse_arg(&trim_sigils(*x)) } );
+        args = vec::map(arg_strs, |x| { parse_arg(&trim_sigils(*x), s) } );
     }
     return canonicalize_args(args, ret);
-}
-
-// load_ret takes a string of a function and returns the return value
-fn load_ret(s: ~str) -> Arg {
-    let st = str::split_str(s, "-> ");
-    if vec::len(st) == 1 {
-        Arg { name: ~"()", inner: ~[] }
-    } else {
-        parse_arg(&str::trim(st[1]))
-    }
 }
 
 // bucket_sort takes defitions and builds the Data structure, by putting them

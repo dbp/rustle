@@ -18,6 +18,8 @@ pub fn split_arguments(a: ~str) -> ~[~str] {
             }
             '<' => level += 1,
             '>' => level -= 1,
+            '(' => level += 1,
+            ')' => level -= 1,
             _ => {}
         }
     }
@@ -25,14 +27,27 @@ pub fn split_arguments(a: ~str) -> ~[~str] {
 }
 
 // parse_arg takes a string and turns it into an Arg
-pub fn parse_arg(s: &~str) -> Arg {
+pub fn parse_arg(s: &~str, ctx: ~str) -> Arg {
     let ps = str::split_char(str::trim(*s), '<');
     if vec::len(ps) == 1 {
-        // non-parametrized type
-        return Arg { name: copy *s, inner: ~[] };
+        // non-parametrized type, see if it's a vec
+        let ps = str::split_char(str::trim(*s), '[');
+        if vec::len(ps) == 1 {
+            // normal type
+            return Arg { name: copy *s, inner: ~[] };
+        } else {
+            // vector type
+            // we drop any modifiers, like const, mut, etc.
+            let va = str::words(str::trim(str::split_char(ps[1],']')[0]));
+            if vec::len(va) == 0 {
+                error!("%s", ctx);
+            }
+            return Arg { name: ~"[]",
+                         inner: ~[parse_arg(&va[vec::len(va)-1], ctx)] };
+        }
     } else {
         let params = split_arguments(str::split_char(ps[1], '>')[0]);
-        return Arg { name: ps[0], inner: vec::map(params, parse_arg)};
+        return Arg { name: ps[0], inner: vec::map(params, |a| {parse_arg(a,ctx)})};
     }
 }
 
@@ -98,5 +113,90 @@ pub fn trim_sigils(s: ~str) -> ~str {
 }
 
 pub fn trim_parens(s: ~str) -> ~str {
-    str::trim(str::split_char(str::split_char(s, '(')[1], ')')[0])
+    let begin = option::get_default(&str::find_char(s,'('),-1)+1;
+    let end = option::get_default(&str::rfind_char(s,')'), str::len(s));
+    str::trim(str::slice(s, begin, end))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_canonicalize_args() {
+        assert canonicalize_args(~[Arg {name: ~"str", inner: ~[]},
+                                   Arg {name: ~"str", inner: ~[]}],
+                                 Arg {name: ~"str", inner: ~[]})
+               == (~[Arg {name: ~"str", inner: ~[]},
+                     Arg {name: ~"str", inner: ~[]}],
+                   Arg {name: ~"str", inner: ~[]});
+        assert canonicalize_args(~[Arg {name: ~"T", inner: ~[]},
+                                   Arg {name: ~"str", inner: ~[]}],
+                                 Arg {name: ~"str", inner: ~[]})
+               == (~[Arg {name: ~"A", inner: ~[]},
+                     Arg {name: ~"str", inner: ~[]}],
+                   Arg {name: ~"str", inner: ~[]});
+        assert canonicalize_args(~[Arg {name: ~"T", inner: ~[]},
+                                   Arg {name: ~"str", inner: ~[]}],
+                                 Arg {name: ~"T", inner: ~[]})
+               == (~[Arg {name: ~"A", inner: ~[]},
+                     Arg {name: ~"str", inner: ~[]}],
+                   Arg {name: ~"A", inner: ~[]});
+
+        assert canonicalize_args(~[Arg {name: ~"T", inner: ~[]},
+                                   Arg {name: ~"str", inner: ~[]},
+                                   Arg {name: ~"T", inner: ~[]}],
+                                 Arg {name: ~"T", inner: ~[]})
+               == (~[Arg {name: ~"A", inner: ~[]},
+                     Arg {name: ~"str", inner: ~[]},
+                     Arg {name: ~"A", inner: ~[]}],
+                   Arg {name: ~"A", inner: ~[]});
+
+        assert canonicalize_args(~[Arg {name: ~"T", inner: ~[]},
+                                   Arg {name: ~"U", inner: ~[]},
+                                   Arg {name: ~"U", inner: ~[]}],
+                                 Arg {name: ~"U", inner: ~[]})
+               == (~[Arg {name: ~"B", inner: ~[]},
+                     Arg {name: ~"A", inner: ~[]},
+                     Arg {name: ~"A", inner: ~[]}],
+                   Arg {name: ~"A", inner: ~[]});
+    }
+
+    #[test]
+    fn test_parameterized_args() {
+        assert canonicalize_args(~[Arg {name: ~"Option",
+                                        inner: ~[Arg {name: ~"T", inner: ~[]}]}],
+                                 Arg {name: ~"T", inner: ~[]})
+            == (~[Arg {name: ~"Option",
+                       inner: ~[Arg {name: ~"A", inner: ~[]}]}],
+                Arg {name: ~"A", inner: ~[]});
+    }
+
+    #[test]
+    fn test_vector_args() {
+        assert canonicalize_args(~[Arg {name: ~"[]",
+                                        inner: ~[Arg {name: ~"T", inner: ~[]}]}],
+                                 Arg {name: ~"T", inner: ~[]})
+            == (~[Arg {name: ~"[]",
+                       inner: ~[Arg {name: ~"A", inner: ~[]}]}],
+                Arg {name: ~"A", inner: ~[]});
+    }
+
+    #[test]
+    fn test_trim_parens() {
+        assert trim_parens(~"(hello)") == ~"hello";
+        assert trim_parens(~"  (   hello)") == ~"hello";
+        assert trim_parens(~"  (   hello )  ") == ~"hello";
+    }
+
+    #[test]
+    fn test_trim_nested_parens() {
+        assert trim_parens(~"(hello, (A,B))") == ~"hello, (A,B)";
+    }
+
+    #[test]
+    fn test_trim_sigils() {
+        assert trim_sigils(~"~str") == ~"str";
+        assert trim_sigils(~"@str") == ~"str";
+        assert trim_sigils(~"str") == ~"str";
+        assert trim_sigils(~"& str") == ~"str";
+    }
 }
