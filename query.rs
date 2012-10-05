@@ -14,6 +14,7 @@ pub fn query(q: ~str) -> ~[Query] {
                        |x| { parse_arg(&trim_sigils(*x), q) });
     // just one for now
     let (args, ret) = canonicalize_args(ars, rv);
+    error!("%?", args);
     ~[Query {args: args, ret: ret}]
 }
 

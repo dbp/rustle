@@ -27,23 +27,41 @@ pub fn split_arguments(a: ~str) -> ~[~str] {
 }
 
 // parse_arg takes a string and turns it into an Arg
-pub fn parse_arg(s: &~str, ctx: ~str) -> Arg {
-    let ps = str::split_char(str::trim(*s), '<');
+pub fn parse_arg(su: &~str, ctx: ~str) -> Arg {
+    let s = trim_sigils(*su);
+    let ps = str::splitn_char(str::trim(s), '<', 1);
     if vec::len(ps) == 1 {
-        // non-parametrized type, see if it's a vec
-        let ps = str::split_char(str::trim(*s), '[');
-        if vec::len(ps) == 1 {
-            // normal type
-            return Arg { name: copy *s, inner: ~[] };
-        } else {
-            // vector type
-            // we drop any modifiers, like const, mut, etc.
-            let va = str::words(str::trim(str::split_char(ps[1],']')[0]));
-            if vec::len(va) == 0 {
-                error!("%s", ctx);
+        if str::len(s) == 0 {
+            return Arg { name: ~"()", inner: ~[] };
+        }
+        // non-parametrized type, see if it's a vec or a tuple
+        match str::char_at(s, 0) {
+            '[' => {
+                // we drop any modifiers, like const, mut, etc.
+                // if there is not a ']', we want to fail
+                let end = option::get(&str::rfind_char(s, ']'));
+                let mut vs = str::trim(str::slice(s, 1, end));
+                // we drop any modifiers, like const, mut, etc.
+                for [~"const", ~"mut"].each |m| {
+                    if option::is_some(&str::find_str(vs, *m)) {
+                        vs = str::slice(s, str::len(*m), end-1);
+                    }
+                }
+                return Arg { name: ~"[]",
+                             inner: ~[parse_arg(&vs, ctx)] };
             }
-            return Arg { name: ~"[]",
-                         inner: ~[parse_arg(&va[vec::len(va)-1], ctx)] };
+            '(' => {
+                // we want to fail if there is no matching paren
+                let end = option::get(&str::rfind_char(s, ')'));
+                let inn = str::trim(str::slice(s, 1, end));
+                let inner = vec::map(split_arguments(inn), |a| { parse_arg(a, s) });
+                return Arg { name: ~"()",
+                             inner: inner};
+            }
+            _ => {
+                // normal type
+                return Arg { name: copy s, inner: ~[] };
+            }
         }
     } else {
         let params = split_arguments(str::split_char(ps[1], '>')[0]);
