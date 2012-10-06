@@ -46,6 +46,11 @@ fn empty_data() -> Data {
            arn: empty_bucket}
 }
 
+fn letters() -> ~[~str] {
+    vec::map(str::chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            |c| { str::from_char(*c) })
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

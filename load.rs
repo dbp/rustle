@@ -95,7 +95,8 @@ fn load_args(s: ~str) -> (~[Arg], Arg) {
         });
         args = vec::map(arg_strs, |x| { parse_arg(&trim_sigils(*x), s) } );
     }
-    return canonicalize_args(args, ret);
+    let (a,r,_) = canonicalize_args(args, ret);
+    return (a,r);
 }
 
 // bucket_sort takes defitions and builds the Data structure, by putting them

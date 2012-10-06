@@ -15,7 +15,9 @@ main = do
   writeJson (parsedCore) -- ++ parsedStd)
     -- produced with the hack:
     -- cat index.html | grep Module | awk -F '<code>' '{print $2}' | awk -F '<' '{print $1}'
-    where coreFileList = ["at_vec", "bool", "box", "cast", "char", "cmp", "comm", "dlist", "dlist_iter", "dvec", "dvec_iter", "either", "f32", "f64", "flate", "float", "from_str", "future", "gc", "hash", "i16", "i32", "i64", "i8", "int", "io", "iter", "libc", "logging", "mutable", "num", "option", "option_iter", "os", "path", "pipes", "ptr", "rand", "reflect", "repr", "result", "run", "send_map", "str", "sys", "task", "to_bytes", "to_str", "tuple", "u16", "u32", "u64", "u8", "uint", "uniq", "unit", "util", "vec"]
+    -- note that the order they appear is the order results will appear in, equally matching
+    -- queries, so the order here is intentional (and subjective).
+    where coreFileList = ["str", "vec", "option", "bool", "io", "os", "path", "either", "run", "at_vec", "box", "cast", "char", "cmp", "comm", "dlist", "dlist_iter", "dvec", "dvec_iter",  "f32", "f64", "flate", "float", "from_str", "future", "gc", "hash", "i16", "i32", "i64", "i8", "int", "iter", "libc", "logging", "mutable", "num", "option_iter", "pipes", "ptr", "rand", "reflect", "repr", "result",  "send_map", "sys", "task", "to_bytes", "to_str", "tuple", "u16", "u32", "u64", "u8", "uint", "uniq", "unit", "util"]
           stdFileList = ["arc","arena","base64","bitv","c_vec","cell","cmp","comm","dbg","deque","ebml","ebml2","fun_treemap","getopts","json","list","map","md4","net","net_ip","net_tcp","net_url","par","prettyprint","prettyprint2","rope","serialization","serialization2","sha1","smallintmap","sort","sync","tempfile","term","time","timer","treemap","uv","uv_global_loop","uv_iotask","uv_ll"]
 writeJson files = do
   let dat = encode $ JSArray $ concat $ map writeJson' files

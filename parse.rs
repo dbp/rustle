@@ -72,7 +72,7 @@ pub fn parse_arg(su: &~str, ctx: ~str) -> Arg {
 // canonicalize_args takes a list of arguments and a return type
 // and replaces generic names consistently (alphabetically, single
 // uppercase letters, in order of frequency)
-pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg) {
+pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg,uint) {
     // The basic process is as follows:
     // 1. identify and count polymorphic params
     // 2. sort and assign new letters to them
@@ -105,10 +105,9 @@ pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg) {
         sort::merge_sort(|x,y| { x.second() >= y.second() }, identifiers_vec);
     // new name assignments
     let names : HashMap<~str,~str> = HashMap();
-    let letters = str::chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
     let mut n = 0;
     for vec::each(identifiers_sorted) |p| {
-        names.insert(p.first(), str::from_char(letters[n]));
+        names.insert(p.first(), letters()[n]);
         n += 1;
     }
     // now rename args
@@ -122,7 +121,7 @@ pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg) {
         }
     }
     return (vec::map(args, |a| { rename_arg(*a, &names) }),
-            rename_arg(ret,&names));
+            rename_arg(ret,&names), n);
 }
 
 // trim_sigils trims off the sigils off of types

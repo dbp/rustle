@@ -49,7 +49,7 @@ fn main() {
 
 fn usage() {
     io::println(~"Rustle, a Rust api search, by type signature, v. 0.1.");
-    io::println(~"Usage: rustle -h | --help            -- this message");
-    io::println(~"       rustle                        -- start interactive mode");
-    io::println(~"       rustle \"[(A,B)] -> ([A],[B])\"     -- query directly");
+    io::println(~"Usage: rustle -h | --help             -- this message");
+    io::println(~"       rustle                         -- start interactive mode");
+    io::println(~"       rustle \"[(A,B)] -> ([A],[B])\"  -- query directly");
 }
