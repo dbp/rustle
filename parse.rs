@@ -124,6 +124,18 @@ pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg,uint) {
             rename_arg(ret,&names), n);
 }
 
+// replace_arg_name replaces the name of one argument with another
+pub fn replace_arg_name(a: Arg, old: ~str, new: ~str) -> Arg {
+    let nname = if a.name == old {
+        new
+    } else {
+        a.name
+    };
+    return Arg { name: nname,
+                 inner: vec::map(a.inner,
+                                |a| {replace_arg_name(*a,old,new)})};
+}
+
 // trim_sigils trims off the sigils off of types
 pub fn trim_sigils(s: ~str) -> ~str {
     str::trim_left_chars(s, &[' ', '&', '~', '@', '+'])

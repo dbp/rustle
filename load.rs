@@ -21,7 +21,7 @@ pub fn load(path: path::Path) -> Data {
         Ok(json) => {
             match json {
                 List(lst) => {
-                    let defs = vec::map(lst, load_obj);
+                    let defs = vec::concat(vec::map(lst, load_obj));
                     bucket_sort(defs)
                 }
                 _ => {
@@ -40,24 +40,48 @@ pub fn load(path: path::Path) -> Data {
     }
 }
 
-// load_obj loads a single object into a Definition, or fails if the json
+// load_obj loads a single object into a set of Definitions, or fails if the json
 // is not well formed
-fn load_obj(obj: &Json) -> Definition {
-    let str_cast : fn(Json) -> ~str = |j| {
+fn load_obj(obj: &Json) -> ~[Definition] {
+    fn str_cast(j: Json) -> ~str {
         match j { String(s) => s,
                   _ => fail ~"non-string" }
-        };
+    }
+    let mut definitions;
     match *obj {
         Object(object) => {
             let ty = str_cast(object.get(&~"type"));
-            let (args, rv) = load_args(ty);
-            Definition { name: str_cast(object.get(&~"name")),
-                         path: str_cast(object.get(&~"path")),
-                         anchor: str_cast(object.get(&~"anchor")),
-                         desc: str_cast(object.get(&~"desc")),
-                         args: args,
-                         ret: rv,
-                         signature: ty }
+            let (args, rv, l) = load_args(ty);
+            definitions = ~[Definition {
+                                    name: str_cast(object.get(&~"name")),
+                                    path: str_cast(object.get(&~"path")),
+                                    anchor: str_cast(object.get(&~"anchor")),
+                                    desc: str_cast(object.get(&~"desc")),
+                                    args: args,
+                                    ret: rv,
+                                    signature: ty }];
+            if l > 1 {
+                // generate variants. for now, we just generate one where
+                // all the type variables are the same. the general case has
+                // exponential variations, and furthermore this type of
+                // solution wouldn't make sense. This should cover most
+                // of the cases without getting too crazy.
+                let mut n = 1;
+                let mut vargs = args;
+                let mut ret = rv;
+                while n < l {
+                    let zl = letters()[0];
+                    let nl = letters()[n];
+                    vargs = vec::map(vargs, |a| {
+                        replace_arg_name(*a, nl, zl)
+                    });
+                    ret = replace_arg_name(ret, nl, zl);
+                    n += 1;
+                }
+                definitions.push(Definition {args: vargs,
+                                             ret: ret,
+                                             ..definitions[0]});
+            }
         }
         _ => {
             io::println("json definitions must be objects");
@@ -65,11 +89,12 @@ fn load_obj(obj: &Json) -> Definition {
             fail;
         }
     }
+    return definitions;
 }
 
 // load_args takes a string of a function and returns a list of the
 // argument types, and the return type
-fn load_args(s: ~str) -> (~[Arg], Arg) {
+fn load_args(s: ~str) -> (~[Arg], Arg, uint) {
     let args_ret = str::split_str(s, "->");
     let mut arlen = vec::len(args_ret);
     let ret;
@@ -95,8 +120,7 @@ fn load_args(s: ~str) -> (~[Arg], Arg) {
         });
         args = vec::map(arg_strs, |x| { parse_arg(&trim_sigils(*x), s) } );
     }
-    let (a,r,_) = canonicalize_args(args, ret);
-    return (a,r);
+    return canonicalize_args(args, ret);
 }
 
 // bucket_sort takes defitions and builds the Data structure, by putting them
