@@ -42,7 +42,7 @@ pub fn load(path: path::Path) -> Data {
 
 // load_obj loads a single object into a set of Definitions, or fails if the json
 // is not well formed
-fn load_obj(obj: &Json) -> ~[Definition] {
+fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
     fn str_cast(j: Json) -> ~str {
         match j { String(s) => s,
                   _ => fail ~"non-string" }
@@ -52,14 +52,15 @@ fn load_obj(obj: &Json) -> ~[Definition] {
         Object(object) => {
             let ty = str_cast(object.get(&~"type"));
             let (args, rv, l) = load_args(ty);
-            definitions = ~[Definition {
-                                    name: str_cast(object.get(&~"name")),
-                                    path: str_cast(object.get(&~"path")),
-                                    anchor: str_cast(object.get(&~"anchor")),
-                                    desc: str_cast(object.get(&~"desc")),
-                                    args: args,
-                                    ret: rv,
-                                    signature: ty }];
+            let canonical =
+                @Definition { name: str_cast(object.get(&~"name")),
+                              path: str_cast(object.get(&~"path")),
+                              anchor: str_cast(object.get(&~"anchor")),
+                              desc: str_cast(object.get(&~"desc")),
+                              args: args,
+                              ret: rv,
+                              signature: ty };
+            definitions = ~[(canonical,true)];
             if l > 1 {
                 // generate variants. for now, we just generate one where
                 // all the type variables are the same. the general case has
@@ -78,9 +79,9 @@ fn load_obj(obj: &Json) -> ~[Definition] {
                     ret = replace_arg_name(ret, nl, zl);
                     n += 1;
                 }
-                definitions.push(Definition {args: vargs,
+                definitions.push((@Definition {args: vargs,
                                              ret: ret,
-                                             ..definitions[0]});
+                                             ..*canonical}, false));
             }
         }
         _ => {
@@ -123,11 +124,12 @@ fn load_args(s: ~str) -> (~[Arg], Arg, uint) {
     return canonicalize_args(args, ret);
 }
 
-// bucket_sort takes defitions and builds the Data structure, by putting them
-// into the appropriate buckets
-fn bucket_sort(ds: ~[Definition]) -> Data {
+// bucket_sort takes definitions and builds the Data structure, by putting
+// them into the appropriate buckets
+fn bucket_sort(ds: ~[(@Definition, bool)]) -> Data {
     let data = empty_data();
-    for vec::each(ds) |d| {
+    for vec::each(ds) |dc| {
+        let (d, canonical) = *dc;
         match vec::len(d.args) {
             0 => bucket_drop(&data.ar0, d),
             1 => bucket_drop(&data.ar1, d),
@@ -137,12 +139,39 @@ fn bucket_sort(ds: ~[Definition]) -> Data {
             5 => bucket_drop(&data.ar5, d),
             _ => bucket_drop(&data.arn, d)
         }
+        if canonical {
+            let mut name = d.name;
+            add_name(data.names, &mut name, d);
+        }
     }
     return data;
 }
 
 // bucket_drop places a definition into the right part of the bucket
-fn bucket_drop(b: &Bucket, d: &Definition) {
+fn bucket_drop(b: &Bucket, d: @Definition) {
     // for now, just put all in np0
-    b.np0.push(copy *d);
+    b.defs.push(d);
+}
+
+// add_name adds a definition to the trie, for prefix searching
+fn add_name(t: @Trie, n: &mut ~str, d: @Definition) {
+    if n.len() == 0 {
+        // found where to put it
+        t.definitions.push(d);
+    } else {
+        // move down a level
+        let c = str::from_char(str::shift_char(n));
+        let mut v;
+        match t.children.find(c) {
+            None => {
+                // add a new branch
+                v = @Trie { children: HashMap(), definitions: ~[] };
+                t.children.insert(c, v);
+            }
+            Some(child) => {
+                v = child;
+            }
+        }
+        add_name(v, n, d);
+    }
 }

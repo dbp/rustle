@@ -20,9 +20,9 @@ pub fn query(q: ~str) -> ~[Query] {
     return queries;
 }
 
-// search looks for matches from the query in the data, and prints out
+// search_type looks for matches from the query in the data, and prints out
 // what it finds
-pub fn search(qs: ~[Query], d: Data) {
+pub fn search_type(qs: ~[Query], d: &Data) {
     for qs.each |q| {
         match vec::len(q.args) {
             0 => search_bucket(d.ar0, *q),
@@ -36,12 +36,46 @@ pub fn search(qs: ~[Query], d: Data) {
     }
 }
 
+// search_name looks for a function by name, prefix only
+pub fn search_name(q: ~str, d: &Data) {
+    let mut name = q;
+    search_trie(d.names, &mut name, q);
+}
+
 // search_bucket looks for matches in a bucket
 fn search_bucket(b: Bucket, q: Query) {
-    for vec::each(b.np0) |d| {
+    for vec::each(b.defs) |d| {
         if d.args == q.args && d.ret == q.ret {
-            io::println(fmt!("%s::%s: %s - %s", d.path, d.name,
-                             d.signature, d.desc));
+            io::println(d.to_str());
+        }
+    }
+}
+
+// search_trie looks for matching defitions by name
+fn search_trie(t: @Trie, n: &mut ~str, q: ~str) {
+    fn find_defs(t: @Trie, q: ~str) {
+        // go through everything at this level, and any deeper
+        for vec::each(t.definitions) |d| {
+            // to avoid borrow errors - eek! FIXME!
+            unsafe {
+                if d.name.contains(q) {
+                    io::println(d.to_str());
+                }
+            }
+        }
+        for t.children.each_value |c| {
+            find_defs(c, q);
+        }
+    }
+    if n.len() == 0 {
+        // at level, look for definition
+        find_defs(t, q);
+    } else {
+        // look deeper, if we can
+        let c = str::from_char(str::shift_char(n));
+        match t.children.find(c) {
+            None => return,
+            Some(child) => search_trie(child, n, q)
         }
     }
 }

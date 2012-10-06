@@ -34,16 +34,24 @@ fn main() {
                 }
                 loop;
             }
-            // build query
-            let queries = query::query(str::trim(raw));
-
-            // search
-            query::search(queries, data);
+            run_search(str::trim(raw), &data)
         }
     } else {
         // single run
-        let queries = query::query(args[1]);
-        query::search(queries, data);
+        run_search(args[1], &data);
+    }
+}
+
+fn run_search(q: ~str, d: &Data) {
+    if q.contains(~"->") || q.contains(~",") {
+        // this is a search by type, for functions
+        // build query
+        let queries = query::query(q);
+        // search
+        query::search_type(queries, d);
+    } else {
+        // this is a search by name
+        query::search_name(q, d);
     }
 }
 
@@ -52,4 +60,5 @@ fn usage() {
     io::println(~"Usage: rustle -h | --help             -- this message");
     io::println(~"       rustle                         -- start interactive mode");
     io::println(~"       rustle \"[(A,B)] -> ([A],[B])\"  -- query directly");
+    io::println(~"       rustle \"each\"                  -- query directly");
 }
