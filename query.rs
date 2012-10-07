@@ -2,7 +2,7 @@
 
 use parse::*;
 
-// query builds a Query from whatever was passed in on the commandline
+// query builds Querys from whatever was passed in on the commandline
 pub fn query(q: ~str) -> ~[Query] {
     let parts = vec::map(str::split_str(q, "->"), |x| { str::trim(*x) });
     let rv = if vec::len(parts) < 2 {
@@ -17,6 +17,10 @@ pub fn query(q: ~str) -> ~[Query] {
     let mut queries = ~[Query {args: args, ret: ret}];
 
     generalize_queries(args,ret,l,&mut queries);
+    // only take first 3 generalizations
+    if vec::len(queries) > 3 {
+        vec::truncate(&mut queries, 3);
+    }
     return queries;
 }
 
@@ -44,14 +48,20 @@ pub fn search_name(q: ~str, d: &Data) {
 
 // search_bucket looks for matches in a bucket
 fn search_bucket(b: Bucket, q: Query) {
+    // only give 10 responses per query
+    let mut n = 0;
     for vec::each(b.defs) |d| {
         if d.args == q.args && d.ret == q.ret {
             io::println(d.to_str());
+            n += 1;
+            if n == 10 {
+                break;
+            }
         }
     }
 }
 
-// search_trie looks for matching defitions by name
+// search_trie looks for matching definitions by name
 fn search_trie(t: @Trie, n: &mut ~str, q: ~str) {
     fn find_defs(t: @Trie, q: ~str) {
         // go through everything at this level, and any deeper
@@ -59,6 +69,7 @@ fn search_trie(t: @Trie, n: &mut ~str, q: ~str) {
             // to avoid borrow errors - eek! FIXME!
             unsafe {
                 if d.name.contains(q) {
+                    error!("%?",d.args);
                     io::println(d.to_str());
                 }
             }
@@ -81,7 +92,7 @@ fn search_trie(t: @Trie, n: &mut ~str, q: ~str) {
 }
 
 // generalize_queries creates more general versions of queries
-// by replacing contrete types with polymorphic variables
+// by replacing concrete types with polymorphic variables
 // note that how we are doing it now, it will generate (lots of) duplicate
 // queries. l is the next available polymorphic variable letter
 fn generalize_queries(args: ~[Arg], ret: Arg, l: uint, q: &mut ~[Query]) {

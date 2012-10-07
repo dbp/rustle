@@ -29,19 +29,18 @@ pub fn split_arguments(a: ~str) -> ~[~str] {
 // parse_arg takes a string and turns it into an Arg
 pub fn parse_arg(su: &~str, ctx: ~str) -> Arg {
     let s = trim_sigils(*su);
+    if str::len(s) == 0 {
+        return Arg { name: ~"()", inner: ~[] };
+    }
     let ps = str::splitn_char(str::trim(s), '<', 1);
     if vec::len(ps) == 1 {
-        if str::len(s) == 0 {
-            return Arg { name: ~"()", inner: ~[] };
-        }
         // non-parametrized type, see if it's a vec or a tuple
         match str::char_at(s, 0) {
             '[' => {
-                // we drop any modifiers, like const, mut, etc.
                 // if there is not a ']', we want to fail
                 let end = option::get(&str::rfind_char(s, ']'));
                 let mut vs = str::trim(str::slice(s, 1, end));
-                // we drop any modifiers, like const, mut, etc.
+                // we drop any modifiers: const, mut.
                 for [~"const", ~"mut"].each |m| {
                     if option::is_some(&str::find_str(vs, *m)) {
                         vs = str::trim(str::slice(s, str::len(*m)+1, end));
@@ -156,19 +155,19 @@ mod tests {
                                  Arg {name: ~"str", inner: ~[]})
                == (~[Arg {name: ~"str", inner: ~[]},
                      Arg {name: ~"str", inner: ~[]}],
-                   Arg {name: ~"str", inner: ~[]});
+                   Arg {name: ~"str", inner: ~[]}, 0);
         assert canonicalize_args(~[Arg {name: ~"T", inner: ~[]},
                                    Arg {name: ~"str", inner: ~[]}],
                                  Arg {name: ~"str", inner: ~[]})
                == (~[Arg {name: ~"A", inner: ~[]},
                      Arg {name: ~"str", inner: ~[]}],
-                   Arg {name: ~"str", inner: ~[]});
+                   Arg {name: ~"str", inner: ~[]}, 1);
         assert canonicalize_args(~[Arg {name: ~"T", inner: ~[]},
                                    Arg {name: ~"str", inner: ~[]}],
                                  Arg {name: ~"T", inner: ~[]})
                == (~[Arg {name: ~"A", inner: ~[]},
                      Arg {name: ~"str", inner: ~[]}],
-                   Arg {name: ~"A", inner: ~[]});
+                   Arg {name: ~"A", inner: ~[]}, 1);
 
         assert canonicalize_args(~[Arg {name: ~"T", inner: ~[]},
                                    Arg {name: ~"str", inner: ~[]},
@@ -177,7 +176,7 @@ mod tests {
                == (~[Arg {name: ~"A", inner: ~[]},
                      Arg {name: ~"str", inner: ~[]},
                      Arg {name: ~"A", inner: ~[]}],
-                   Arg {name: ~"A", inner: ~[]});
+                   Arg {name: ~"A", inner: ~[]}, 1);
 
         assert canonicalize_args(~[Arg {name: ~"T", inner: ~[]},
                                    Arg {name: ~"U", inner: ~[]},
@@ -186,7 +185,7 @@ mod tests {
                == (~[Arg {name: ~"B", inner: ~[]},
                      Arg {name: ~"A", inner: ~[]},
                      Arg {name: ~"A", inner: ~[]}],
-                   Arg {name: ~"A", inner: ~[]});
+                   Arg {name: ~"A", inner: ~[]}, 2);
     }
 
     #[test]
@@ -196,7 +195,7 @@ mod tests {
                                  Arg {name: ~"T", inner: ~[]})
             == (~[Arg {name: ~"Option",
                        inner: ~[Arg {name: ~"A", inner: ~[]}]}],
-                Arg {name: ~"A", inner: ~[]});
+                Arg {name: ~"A", inner: ~[]}, 1);
     }
 
     #[test]
@@ -206,7 +205,7 @@ mod tests {
                                  Arg {name: ~"T", inner: ~[]})
             == (~[Arg {name: ~"[]",
                        inner: ~[Arg {name: ~"A", inner: ~[]}]}],
-                Arg {name: ~"A", inner: ~[]});
+                Arg {name: ~"A", inner: ~[]}, 1);
     }
 
     #[test]

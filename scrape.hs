@@ -1,7 +1,7 @@
 import Text.HTML.TagSoup
 import Text.JSON
 import Data.List (isInfixOf, isPrefixOf)
-
+import Debug.Trace
 
 -- only extract functions for now
 
@@ -22,35 +22,58 @@ main = do
 writeJson files = do
   let dat = encode $ JSArray $ concat $ map writeJson' files
   writeFile "rustle.data" dat
-    where writeJson' = map (\(a,n,t,d,p) -> JSObject $
+    where writeJson' = map (\(a,n,t,s,d,p) -> JSObject $
                                             toJSObject [("anchor", JSString $ toJSString a)
                                                        ,("name",   JSString $ toJSString n)
                                                        ,("type",   JSString $ toJSString t)
+                                                       ,("self",   JSString $ toJSString s)
                                                        ,("desc",   JSString $ toJSString d)
                                                        ,("path",   JSString $ toJSString p)])
 
 parseFile (path, n) = do
     f <- readFile n
     let tags = parseTags f
-    let sections = partitions (\t -> (isTagOpenName "div" t) &&
-                                    ("section" `isInfixOf` (fromAttrib "class" t)) &&
-                                    ("function" `isPrefixOf` (fromAttrib "id" t)))
+    let sects = partitions (\t -> (isTagOpenName "div" t) &&
+                                      ("level2" `isInfixOf` (fromAttrib "class" t)) &&
+                                      (("function" `isPrefixOf` (fromAttrib "id" t)) ||
+                                       ("implementation" `isPrefixOf` (fromAttrib "id" t))))
                               tags
-    return $ map (extractInfo path) sections
+    return $ concat $ map (extract path) sects
 
+extract path tags = if ("function" `isPrefixOf` (fromAttrib "id" (head tags)))
+                    then extractFunc path tags
+                    else extractMethods path tags
 
+extractMethods path tags = map (extractMethod path clas self) methods
+  where methods = partitions (\t -> (isTagOpenName "div" t) &&
+                      ("level3" `isInfixOf` (fromAttrib "class" t)) &&
+                      ("method" `isPrefixOf` (fromAttrib "id" t)))
+               tags
+        impl = partitions (isTagOpenName "code") $
+          takeWhile (not.isTagCloseName "h2") $ getTag "h2" tags
+        isExtensions = (length impl) == 1
+        self = getCod $ impl !! (if isExtensions then 0 else 1)
+        clas = if isExtensions then self else getCod $ impl !! 0
+
+extractMethod path clas self tags = (anchor, name, ty, self, desc, path)
+  where anchor = fromAttrib "id" (head tags)
+        name   = getCod $ getTag "h3" tags
+        ty     = getCod $ getTag "pre" tags
+        desc   = "a method of " ++ clas
 
 -- div's id gives you link
 -- h2 > code has name
 -- pre > code has type
 -- first p has short description
-extractInfo path tags = (anchor, name, ty, desc, path)
-    where anchor   = fromAttrib "id" (head tags)
-          name     = getCod $ getTag "h2" tags
-          ty       = getCod $ getTag "pre" tags
-          desc     = getText $ headSafe $ drop 1 $ getTag "p" tags
-          getCod   = getText . headSafe . drop 1 . (getTag "code")
-          getTag n = dropWhile (not . isTagOpenName n)
-          getText = maybe "" fromTagText
-          headSafe [] = Nothing
-          headSafe x = Just (head x)
+extractFunc path tags = [(anchor, name, ty, "", desc, path)]
+    where anchor = fromAttrib "id" (head tags)
+          name   = getCod $ getTag "h2" tags
+          ty     = getCod $ getTag "pre" tags
+          desc   = getText $ headSafe $ drop 1 $ getTag "p" tags
+
+
+getCod   = getText . headSafe . drop 1 . (getTag "code")
+getTag n = dropWhile (not . isTagOpenName n)
+getText = maybe "" fromTagText
+headSafe [] = Nothing
+headSafe x = Just (head x)

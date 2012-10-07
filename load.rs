@@ -51,7 +51,10 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
     match *obj {
         Object(object) => {
             let ty = str_cast(object.get(&~"type"));
-            let (args, rv, l) = load_args(ty);
+            let self = match str_cast(object.get(&~"self")) {
+                ~"" => None, s => Some(s)
+            };
+            let (args, rv, l) = load_args(ty,self);
             let canonical =
                 @Definition { name: str_cast(object.get(&~"name")),
                               path: str_cast(object.get(&~"path")),
@@ -95,17 +98,22 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
 
 // load_args takes a string of a function and returns a list of the
 // argument types, and the return type
-fn load_args(s: ~str) -> (~[Arg], Arg, uint) {
-    let args_ret = str::split_str(s, "->");
+fn load_args(arg_list: ~str, self: Option<~str>) -> (~[Arg], Arg, uint) {
+    let self_list = match self {
+        None => ~[],
+        Some(s) => ~[parse_arg(&trim_sigils(s), s)]
+    };
+    let args_ret = str::split_str(arg_list, "->");
     let mut arlen = vec::len(args_ret);
     let ret;
     if vec::len(args_ret) == 1 {
         arlen += 1;
         ret = Arg { name: ~"()", inner: ~[] };
     } else {
-        ret = parse_arg(&str::trim(args_ret[arlen-1]), s);
+        ret = parse_arg(&str::trim(args_ret[arlen-1]), arg_list);
     }
-    let arg_str = trim_parens(str::connect(vec::view(args_ret, 0, arlen-1), "->"));
+    let arg_str =
+        trim_parens(str::connect(vec::view(args_ret, 0, arlen-1), "->"));
     let args;
     if str::len(arg_str) == 0 {
         args = ~[];
@@ -113,15 +121,17 @@ fn load_args(s: ~str) -> (~[Arg], Arg, uint) {
         let arg_strs = vec::map(split_arguments(arg_str), |a| {
             let t = str::splitn_char(*a, ':', 1);
             if vec::len(t) < 2 {
-                error!("%s", s);
+                error!("%s", arg_list);
                 error!("%s", arg_str);
                 error!("%?", t);
             }
             t[1]
         });
-        args = vec::map(arg_strs, |x| { parse_arg(&trim_sigils(*x), s) } );
+        args = vec::map(arg_strs, |x| {
+                parse_arg(&trim_sigils(*x), arg_list)
+            } );
     }
-    return canonicalize_args(args, ret);
+    return canonicalize_args(vec::append(self_list,args), ret);
 }
 
 // bucket_sort takes definitions and builds the Data structure, by putting
@@ -173,5 +183,26 @@ fn add_name(t: @Trie, n: &mut ~str, d: @Definition) {
             }
         }
         add_name(v, n, d);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_load_args() {
+        assert load_args(~"fn ne(other: & ~str) -> bool",
+                         Some(~"& str")) ==
+                (~[Arg {name: ~"str", inner: ~[]},
+                   Arg {name: ~"str", inner: ~[]}],
+                 Arg {name: ~"bool", inner: ~[]},
+                 0);
+    }
+    fn test_method_args() {
+        assert load_args(~"fn ne(other: & Option<T>) -> bool",
+                         Some(~"& str")) ==
+                (~[Arg {name: ~"str", inner: ~[]},
+                   Arg {name: ~"str", inner: ~[]}],
+                 Arg {name: ~"bool", inner: ~[]},
+                 0);
     }
 }

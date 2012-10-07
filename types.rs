@@ -13,27 +13,23 @@ impl Arg : cmp::Eq {
     }
 }
 
-// a query is a collection of definitions, ordered from most specific
-// to most general. they should all match something the user could be
-// looking for.
+// a query is a ...
 struct Query { args: ~[Arg], ret: Arg }
 
 // a Definition is what we are trying to match against. Note that
 // definitions are not exactly unique, as they can be made more specific
-// (ie, A,B -> C can be A A -> B, etc)
+// (ie, A,B -> C can be A,A -> B, etc)
 struct Definition { name: ~str, path: ~str, anchor: ~str, desc: ~str,
                     args: ~[Arg], ret: Arg, signature: ~str }
 
 impl Definition : to_str::ToStr {
     fn to_str() -> ~str {
-        fmt!("%s::%s: %s - %s", self.path,
+        fmt!("%s::%s - %s - %s", self.path,
              self.name, self.signature, self.desc)
     }
 }
 
-// A bucket holds a bunch of definitions, ordered by number of distinct
-// non-polymorphic types, then by number of distinct polymorphic types,
-// for completely polymorphic functions.
+// A bucket holds a bunch of definitions
 struct Bucket { mut defs: ~[@Definition] }
 
 // A trie is used to look up names efficiently by prefix. We assume that
