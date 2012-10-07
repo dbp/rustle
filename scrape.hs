@@ -1,24 +1,25 @@
 import Text.HTML.TagSoup
 import Text.JSON
 import Data.List (isInfixOf, isPrefixOf)
-import Debug.Trace
+import System.Environment (getArgs)
 
--- only extract functions for now
+-- This is a really simple scraper that is intended to be replaced as soon as
+-- rustdoc is a library and we can use it directly, instead of using it to generate
+-- html (which we don't want) and then scraping the html. it is written in haskell
+-- because as of now, AFAIK, there is no html scraper written in rust, and I wanted
+-- to work on rustle, not an html scraper :)
 
-docPath = "/Users/dbp/Code/rust/doc/"
 
 main = do
-  let coreFiles = map (\n -> ("core::" ++ n, docPath ++ "core/" ++  n ++ ".html")) coreFileList
-  --let stdFiles = map (\n -> ("std::" ++ n, docPath ++ "std/" ++  n ++ ".html")) stdFileList
+  docPath <- fmap head getArgs
+  let coreFiles = map (\n -> ("core::" ++ n, docPath ++ "/core/" ++  n ++ ".html")) coreFileList
   parsedCore <- mapM parseFile coreFiles
-  --parsedStd <- mapM parseFile stdFiles
   writeJson (parsedCore) -- ++ parsedStd)
     -- produced with the hack:
     -- cat index.html | grep Module | awk -F '<code>' '{print $2}' | awk -F '<' '{print $1}'
     -- note that the order they appear is the order results will appear in, equally matching
     -- queries, so the order here is intentional (and subjective).
     where coreFileList = ["str", "vec", "option", "bool", "io", "os", "path", "either", "run", "at_vec", "box", "cast", "char", "cmp", "comm", "dlist", "dlist_iter", "dvec", "dvec_iter",  "f32", "f64", "flate", "float", "from_str", "future", "gc", "hash", "i16", "i32", "i64", "i8", "int", "iter", "libc", "logging", "mutable", "num", "option_iter", "pipes", "ptr", "rand", "reflect", "repr", "result",  "send_map", "sys", "task", "to_bytes", "to_str", "tuple", "u16", "u32", "u64", "u8", "uint", "uniq", "unit", "util"]
-          stdFileList = ["arc","arena","base64","bitv","c_vec","cell","cmp","comm","dbg","deque","ebml","ebml2","fun_treemap","getopts","json","list","map","md4","net","net_ip","net_tcp","net_url","par","prettyprint","prettyprint2","rope","serialization","serialization2","sha1","smallintmap","sort","sync","tempfile","term","time","timer","treemap","uv","uv_global_loop","uv_iotask","uv_ll"]
 writeJson files = do
   let dat = encode $ JSArray $ concat $ map writeJson' files
   writeFile "rustle.data" dat
