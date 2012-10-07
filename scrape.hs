@@ -44,7 +44,10 @@ extract path tags = if ("function" `isPrefixOf` (fromAttrib "id" (head tags)))
                     then extractFunc path tags
                     else extractMethods path tags
 
-extractMethods path tags = map (extractMethod path clas self) methods
+-- for now, ignore impls of traits - they add lots of results and with the current
+-- presentation, dillute the results
+extractMethods path tags = if isExtensions then map (extractMethod path clas self) methods
+                                           else []
   where methods = partitions (\t -> (isTagOpenName "div" t) &&
                       ("level3" `isInfixOf` (fromAttrib "class" t)) &&
                       ("method" `isPrefixOf` (fromAttrib "id" t)))
@@ -59,7 +62,8 @@ extractMethod path clas self tags = (anchor, name, ty, self, desc, path)
   where anchor = fromAttrib "id" (head tags)
         name   = getCod $ getTag "h3" tags
         ty     = getCod $ getTag "pre" tags
-        desc   = "a method of " ++ clas
+        desc   = "a method of " ++ clas ++ ": " ++
+          (getText $ headSafe $ drop 1 $ getTag "p" tags)
 
 -- div's id gives you link
 -- h2 > code has name

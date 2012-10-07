@@ -44,7 +44,7 @@ pub fn load(path: path::Path) -> Data {
 // is not well formed
 fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
     fn str_cast(j: Json) -> ~str {
-        match j { String(s) => s,
+        match j { String(s) => copy s,
                   _ => fail ~"non-string" }
     }
     let mut definitions;
@@ -52,9 +52,9 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
         Object(object) => {
             let ty = str_cast(object.get(&~"type"));
             let self = match str_cast(object.get(&~"self")) {
-                ~"" => None, s => Some(s)
+                ~"" => None, s => Some(copy s)
             };
-            let (args, rv, l) = load_args(ty,self);
+            let (args, rv, l) = load_args(copy ty,self);
             let canonical =
                 @Definition { name: str_cast(object.get(&~"name")),
                               path: str_cast(object.get(&~"path")),
@@ -74,12 +74,12 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
                 let mut vargs = args;
                 let mut ret = rv;
                 while n < l {
-                    let zl = letters()[0];
-                    let nl = letters()[n];
+                    let zl = letters(0);
+                    let nl = letters(n);
                     vargs = vec::map(vargs, |a| {
-                        replace_arg_name(*a, nl, zl)
+                        replace_arg_name(a, nl, zl)
                     });
-                    ret = replace_arg_name(ret, nl, zl);
+                    ret = replace_arg_name(&ret, nl, zl);
                     n += 1;
                 }
                 definitions.push((@Definition {args: vargs,
@@ -101,7 +101,7 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
 fn load_args(arg_list: ~str, self: Option<~str>) -> (~[Arg], Arg, uint) {
     let self_list = match self {
         None => ~[],
-        Some(s) => ~[parse_arg(&trim_sigils(s), s)]
+        Some(s) => ~[parse_arg(&trim_sigils(s))]
     };
     let args_ret = str::split_str(arg_list, "->");
     let mut arlen = vec::len(args_ret);
@@ -110,7 +110,7 @@ fn load_args(arg_list: ~str, self: Option<~str>) -> (~[Arg], Arg, uint) {
         arlen += 1;
         ret = Arg { name: ~"()", inner: ~[] };
     } else {
-        ret = parse_arg(&str::trim(args_ret[arlen-1]), arg_list);
+        ret = parse_arg(&str::trim(args_ret[arlen-1]));
     }
     let arg_str =
         trim_parens(str::connect(vec::view(args_ret, 0, arlen-1), "->"));
@@ -118,17 +118,12 @@ fn load_args(arg_list: ~str, self: Option<~str>) -> (~[Arg], Arg, uint) {
     if str::len(arg_str) == 0 {
         args = ~[];
     } else {
-        let arg_strs = vec::map(split_arguments(arg_str), |a| {
+        let arg_strs = vec::map(split_arguments(&arg_str), |a| {
             let t = str::splitn_char(*a, ':', 1);
-            if vec::len(t) < 2 {
-                error!("%s", arg_list);
-                error!("%s", arg_str);
-                error!("%?", t);
-            }
-            t[1]
+            copy t[1]
         });
         args = vec::map(arg_strs, |x| {
-                parse_arg(&trim_sigils(*x), arg_list)
+                parse_arg(&trim_sigils(*x))
             } );
     }
     return canonicalize_args(vec::append(self_list,args), ret);
@@ -150,7 +145,7 @@ fn bucket_sort(ds: ~[(@Definition, bool)]) -> Data {
             _ => bucket_drop(&data.arn, d)
         }
         if canonical {
-            let mut name = d.name;
+            let mut name = copy d.name;
             add_name(data.names, &mut name, d);
         }
     }
@@ -172,7 +167,7 @@ fn add_name(t: @Trie, n: &mut ~str, d: @Definition) {
         // move down a level
         let c = str::from_char(str::shift_char(n));
         let mut v;
-        match t.children.find(c) {
+        match t.children.find(copy c) {
             None => {
                 // add a new branch
                 v = @Trie { children: HashMap(), definitions: ~[] };

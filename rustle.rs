@@ -38,7 +38,7 @@ fn main() {
         }
     } else {
         // single run
-        run_search(args[1], &data);
+        run_search(copy args[1], &data);
     }
 }
 

@@ -16,14 +16,24 @@ impl Arg : cmp::Eq {
 // a query is a ...
 struct Query { args: ~[Arg], ret: Arg }
 
+impl Query : cmp::Eq {
+    pure fn eq(other: &Query) -> bool {
+        (self.args == other.args) && (self.ret == other.ret)
+    }
+    pure fn ne(other: &Query) -> bool {
+        (self.args != other.args) || (self.ret != other.ret)
+    }
+}
+
 // a Definition is what we are trying to match against. Note that
 // definitions are not exactly unique, as they can be made more specific
 // (ie, A,B -> C can be A,A -> B, etc)
 struct Definition { name: ~str, path: ~str, anchor: ~str, desc: ~str,
                     args: ~[Arg], ret: Arg, signature: ~str }
 
-impl Definition : to_str::ToStr {
-    fn to_str() -> ~str {
+// fn show_def returns a representation of the definition suitable for printing
+impl Definition {
+    fn show() -> ~str {
         fmt!("%s::%s - %s - %s", self.path,
              self.name, self.signature, self.desc)
     }
@@ -51,13 +61,41 @@ fn empty_data() -> Data {
            arn: empty_bucket, names: @empty_trie}
 }
 
-fn letters() -> ~[~str] {
-    vec::map(str::chars("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
-            |c| { str::from_char(*c) })
+fn letters(n: uint) -> @~str {
+    match n {
+        0  => @~"A",
+        1  => @~"B",
+        2  => @~"C",
+        3  => @~"D",
+        4  => @~"E",
+        5  => @~"F",
+        6  => @~"G",
+        7  => @~"H",
+        8  => @~"I",
+        9  => @~"J",
+        10 => @~"K",
+        11 => @~"L",
+        12 => @~"M",
+        13 => @~"N",
+        14 => @~"O",
+        15 => @~"P",
+        16 => @~"Q",
+        17 => @~"R",
+        18 => @~"S",
+        19 => @~"T",
+        20 => @~"U",
+        21 => @~"V",
+        22 => @~"W",
+        23 => @~"X",
+        24 => @~"Y",
+        25 => @~"Z",
+        _  => fail ~"too many letters"
+    }
 }
 
 #[cfg(test)]
 mod tests {
+
     #[test]
     fn arg_eq() {
         assert Arg { name: ~"uint", inner: ~[] } == Arg { name: ~"uint", inner: ~[] };
@@ -65,5 +103,21 @@ mod tests {
                  == Arg { name: ~"uint", inner: ~[] });
         assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] }
                  == Arg { name: ~"uint", inner: ~[Arg { name: ~"B", inner: ~[] }] });
+    }
+
+    #[test]
+    fn test_definition_show() {
+        let d =
+            Definition { name: ~"foo", path: ~"core::foo", anchor: ~"fun-foo",
+                         desc: ~"foo does bar", args: ~[],
+                         ret: Arg {name: ~"int", inner: ~[]},
+                         signature: ~"fn foo() -> int" };
+        assert d.show() == ~"core::foo::foo - fn foo() -> int - foo does bar";
+    }
+
+    #[test]
+    fn test_letters() {
+        assert letters(1) == @~"B";
+        assert letters(25) == @~"Z";
     }
 }

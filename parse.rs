@@ -5,15 +5,16 @@ use types::*;
 // split arguments; note that because commas
 // can appear in parametric types, ie Either<A,B>,
 // we need to handle this a little more carefully
-pub fn split_arguments(a: ~str) -> ~[~str] {
+pub fn split_arguments(a: &~str) -> ~[~str] {
     let mut arg_strs : ~[~str] = ~[];
     let mut level = 0;
     let mut start = 0;
     // add a trailing comma so we pick up the last argument
-    for str::each_chari(str::append(a, ~",")) |i,c| {
+    let s = str::append(copy *a, ~",");
+    for str::each_chari(s) |i,c| {
         match c {
             ',' if level == 0 => {
-                arg_strs.push(str::trim(str::slice(a,start,i)));
+                arg_strs.push(str::trim(str::slice(s,start,i)));
                 start = i+1;
             }
             '<' => level += 1,
@@ -27,7 +28,7 @@ pub fn split_arguments(a: ~str) -> ~[~str] {
 }
 
 // parse_arg takes a string and turns it into an Arg
-pub fn parse_arg(su: &~str, ctx: ~str) -> Arg {
+pub fn parse_arg(su: &~str) -> Arg {
     let s = trim_sigils(*su);
     if str::len(s) == 0 {
         return Arg { name: ~"()", inner: ~[] };
@@ -47,13 +48,13 @@ pub fn parse_arg(su: &~str, ctx: ~str) -> Arg {
                     }
                 }
                 return Arg { name: ~"[]",
-                             inner: ~[parse_arg(&vs, ctx)] };
+                             inner: ~[parse_arg(&vs)] };
             }
             '(' => {
                 // we want to fail if there is no matching paren
                 let end = option::get(&str::rfind_char(s, ')'));
                 let inn = str::trim(str::slice(s, 1, end));
-                let inner = vec::map(split_arguments(inn), |a| { parse_arg(a, s) });
+                let inner = vec::map(split_arguments(&inn), |a| { parse_arg(a) });
                 return Arg { name: ~"()",
                              inner: inner};
             }
@@ -63,8 +64,8 @@ pub fn parse_arg(su: &~str, ctx: ~str) -> Arg {
             }
         }
     } else {
-        let params = split_arguments(str::split_char(ps[1], '>')[0]);
-        return Arg { name: ps[0], inner: vec::map(params, |a| {parse_arg(a,ctx)})};
+        let params = split_arguments(&str::split_char(ps[1], '>')[0]);
+        return Arg { name: ps[0], inner: vec::map(params, |a| {parse_arg(a)})};
     }
 }
 
@@ -78,22 +79,22 @@ pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg,uint) {
     // 3. replace names
 
     let identifiers : HashMap<~str, uint> = HashMap();
-    fn walk_ids(a: Arg, m: &HashMap<~str, uint>) {
-        match m.find(a.name) {
+    fn walk_ids(a: &Arg, m: &HashMap<~str, uint>) {
+        match m.find(copy a.name) {
             None => {
                 if str::len(a.name) == 1 {
-                    m.insert(a.name, 1);
+                    m.insert(copy a.name, 1);
                 } else {
                     // not counting other types currently
                 }
             }
-            Some(n) => { m.insert(a.name, n+1); }
+            Some(n) => { m.insert(copy a.name, n+1); }
         }
-        vec::map(a.inner, |x| { walk_ids(*x, m) } );
+        vec::map(a.inner, |x| { walk_ids(x, m) } );
     }
     // identify / count parameters
-    vec::map(args, |a| { walk_ids(*a,&identifiers) } );
-    walk_ids(ret, &identifiers);
+    vec::map(args, |a| { walk_ids(a,&identifiers) } );
+    walk_ids(&ret, &identifiers);
     // put them in a vec
     let mut identifiers_vec : ~[(~str, uint)] = ~[];
     for identifiers.each |i,c| {
@@ -103,40 +104,40 @@ pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg,uint) {
     let identifiers_sorted =
         sort::merge_sort(|x,y| { x.second() >= y.second() }, identifiers_vec);
     // new name assignments
-    let names : HashMap<~str,~str> = HashMap();
+    let names : HashMap<~str,@~str> = HashMap();
     let mut n = 0;
     for vec::each(identifiers_sorted) |p| {
-        names.insert(p.first(), letters()[n]);
+        names.insert(p.first(), letters(n));
         n += 1;
     }
     // now rename args
-    fn rename_arg(a: Arg, n: &HashMap<~str,~str>) -> Arg {
-        if n.contains_key(a.name) {
-            Arg { name: n.get(a.name),
-                  inner: vec::map(a.inner, |x| { rename_arg(*x, n) })}
+    fn rename_arg(a: &Arg, n: &HashMap<~str,@~str>) -> Arg {
+        if n.contains_key(copy a.name) {
+            Arg { name: *n.get(copy a.name),
+                  inner: vec::map(a.inner, |x| { rename_arg(x, n) })}
         } else {
             Arg { name: a.name,
-                  inner: vec::map(a.inner, |x| { rename_arg(*x, n) })}
+                  inner: vec::map(a.inner, |x| { rename_arg(x, n) })}
         }
     }
-    return (vec::map(args, |a| { rename_arg(*a, &names) }),
-            rename_arg(ret,&names), n);
+    return (vec::map(args, |a| { rename_arg(a, &names) }),
+            rename_arg(&ret,&names), n);
 }
 
 // replace_arg_name replaces the name of one argument with another
-pub fn replace_arg_name(a: Arg, old: ~str, new: ~str) -> Arg {
-    let nname = if a.name == old {
-        new
+pub fn replace_arg_name(a: &Arg, old: @~str, new: @~str) -> Arg {
+    let nname = if a.name == *old {
+        copy *new
     } else {
-        a.name
+        copy a.name
     };
     return Arg { name: nname,
                  inner: vec::map(a.inner,
-                                |a| {replace_arg_name(*a,old,new)})};
+                                |i| {replace_arg_name(i,old,new)})};
 }
 
 // trim_sigils trims off the sigils off of types
-pub fn trim_sigils(s: ~str) -> ~str {
+pub fn trim_sigils(s: &str) -> ~str {
     str::trim_left_chars(s, &[' ', '&', '~', '@', '+'])
 }
 

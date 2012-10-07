@@ -8,10 +8,10 @@ pub fn query(q: ~str) -> ~[Query] {
     let rv = if vec::len(parts) < 2 {
         Arg { name: ~"()", inner: ~[] }
     } else {
-        parse_arg(&parts[1], q)
+        parse_arg(&parts[1])
     };
-    let ars = vec::map(split_arguments(parts[0]),
-                       |x| { parse_arg(&trim_sigils(*x), q) });
+    let ars = vec::map(split_arguments(&parts[0]),
+                       |x| { parse_arg(&trim_sigils(*x)) });
     let (args, ret, l) = canonicalize_args(ars, rv);
     // now create more general variants
     let mut queries = ~[Query {args: args, ret: ret}];
@@ -28,51 +28,47 @@ pub fn query(q: ~str) -> ~[Query] {
 // what it finds
 pub fn search_type(qs: ~[Query], d: &Data) {
     for qs.each |q| {
-        match vec::len(q.args) {
-            0 => search_bucket(d.ar0, *q),
-            1 => search_bucket(d.ar1, *q),
-            2 => search_bucket(d.ar2, *q),
-            3 => search_bucket(d.ar3, *q),
-            4 => search_bucket(d.ar4, *q),
-            5 => search_bucket(d.ar5, *q),
-            _ => search_bucket(d.arn, *q)
+        let results = match vec::len(q.args) {
+                0 => search_bucket(&d.ar0, q),
+                1 => search_bucket(&d.ar1, q),
+                2 => search_bucket(&d.ar2, q),
+                3 => search_bucket(&d.ar3, q),
+                4 => search_bucket(&d.ar4, q),
+                5 => search_bucket(&d.ar5, q),
+                _ => search_bucket(&d.arn, q)
+            };
+        for results.each |r| {
+            io::println(r.show());
         }
     }
 }
 
 // search_name looks for a function by name, prefix only
 pub fn search_name(q: ~str, d: &Data) {
-    let mut name = q;
-    search_trie(d.names, &mut name, q);
+    let mut name = copy q;
+    search_trie(d.names, &mut name, &q);
 }
 
 // search_bucket looks for matches in a bucket
-fn search_bucket(b: Bucket, q: Query) {
+pure fn search_bucket(b: &Bucket, q: &Query) -> ~[@Definition] {
+    let results =
+        vec::filter(b.defs, |d| { d.args == q.args && d.ret == q.ret });
     // only give 10 responses per query
-    let mut n = 0;
-    for vec::each(b.defs) |d| {
-        if d.args == q.args && d.ret == q.ret {
-            io::println(d.to_str());
-            n += 1;
-            if n == 10 {
-                break;
-            }
-        }
+    if results.len() > 10 {
+        return vec::slice(results,0,10);
+    } else {
+        return results;
     }
 }
 
 // search_trie looks for matching definitions by name
-fn search_trie(t: @Trie, n: &mut ~str, q: ~str) {
-    fn find_defs(t: @Trie, q: ~str) {
+fn search_trie(t: @Trie, n: &mut ~str, q: &~str) {
+    fn find_defs(t: @Trie, q: &~str) {
         // go through everything at this level, and any deeper
-        for vec::each(t.definitions) |d| {
-            // to avoid borrow errors - eek! FIXME!
-            unsafe {
-                if d.name.contains(q) {
-                    error!("%?",d.args);
-                    io::println(d.to_str());
-                }
-            }
+        // str::contains should be pure, but isn't, hence the escape-hatch
+        let matches = vec::filter(t.definitions, |d| { unsafe {d.name.contains(*q)} });
+        for matches.each |d| {
+            io::println(d.show());
         }
         for t.children.each_value |c| {
             find_defs(c, q);
@@ -97,21 +93,42 @@ fn search_trie(t: @Trie, n: &mut ~str, q: ~str) {
 // queries. l is the next available polymorphic variable letter
 fn generalize_queries(args: ~[Arg], ret: Arg, l: uint, q: &mut ~[Query]) {
     let arg_names = HashMap();
-    fn get_arg_names(a: Arg, n: &HashMap<~str,()>) {
-        n.insert(a.name,());
-        vec::map(a.inner, |a| {get_arg_names(*a, n)});
+    fn get_arg_names(a: &Arg, n: &HashMap<@~str,()>) {
+        n.insert(@copy a.name,());
+        vec::map(a.inner, |a| {get_arg_names(a, n)});
     }
-    vec::map(args, |a| {get_arg_names(*a,&arg_names)});
-    get_arg_names(ret,&arg_names);
+    vec::map(args, |a| {get_arg_names(a,&arg_names)});
+    get_arg_names(&ret,&arg_names);
     // now for all that aren't polymorphic, make them and
     // search recursively. note that t
     for arg_names.each_key |n| {
-        if n.len() != 1 && n != ~"[]" && n != ~"()" {
-            let nn = letters()[l];
-            let nargs = vec::map(args, |a| { replace_arg_name(*a,n,nn) });
-            let nret = replace_arg_name(ret,n,nn);
+        if n.len() != 1 && n != @~"[]" && n != @~"()" {
+            let nn = letters(l);
+            let nargs = vec::map(args, |a| { replace_arg_name(a,n,nn) });
+            let nret = replace_arg_name(&ret,n,nn);
             q.push(Query {args: nargs, ret: nret});
             generalize_queries(nargs, nret, l+1, q);
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_generalize_queries() {
+        let args = ~[Arg {name: ~"A", inner: ~[]},
+                     Arg {name: ~"str", inner: ~[]},
+                     Arg {name: ~"A", inner: ~[]}];
+        let ret = Arg {name: ~"A", inner: ~[]};
+        let mut queries = ~[];
+        generalize_queries(args, ret, 1, &mut queries);
+        error!("%?",queries);
+        assert queries.len() == 1;
+        assert queries[0] == Query { args: ~[Arg { name: ~"A", inner: ~[] },
+                                             Arg { name: ~"B", inner: ~[] },
+                                             Arg { name: ~"A", inner: ~[] }],
+                                     ret: Arg { name: ~"A", inner: ~[] } };
+    }
+
 }
