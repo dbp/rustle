@@ -149,6 +149,32 @@ pub fn trim_parens(s: ~str) -> ~str {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn test_split_arguments() {
+        assert split_arguments(&~"uint, ~str") == ~[~"uint", ~"~str"];
+        assert split_arguments(&~"uint, ~str, int") ==
+            ~[~"uint", ~"~str", ~"int"];
+        assert split_arguments(&~"uint, Type<A,B>") ==
+            ~[~"uint", ~"Type<A,B>"];
+        assert split_arguments(&~"uint, Type<(C,D),B>") ==
+            ~[~"uint", ~"Type<(C,D),B>"];
+    }
+
+    #[test]
+    fn test_parse_arg() {
+        assert parse_arg(&~"~str") == Arg {name: ~"str", inner: ~[]};
+        assert parse_arg(&~"@str") == Arg {name: ~"str", inner: ~[]};
+        assert parse_arg(&~"&@str") == Arg {name: ~"str", inner: ~[]};
+        assert parse_arg(&~"Option<~str>") ==
+            Arg {name: ~"Option", inner: ~[Arg {name: ~"str", inner: ~[]}]};
+        assert parse_arg(&~"~[uint]") ==
+            Arg {name: ~"[]", inner: ~[Arg {name: ~"uint", inner: ~[]}]};
+        assert parse_arg(&~"(uint, ~str)") ==
+            Arg {name: ~"()", inner: ~[Arg {name: ~"uint", inner: ~[]},
+                                       Arg {name: ~"str", inner: ~[]}]};
+    }
+
     #[test]
     fn test_canonicalize_args() {
         assert canonicalize_args(~[Arg {name: ~"str", inner: ~[]},
@@ -190,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parameterized_args() {
+    fn test_canonicalize_parameterized_args() {
         assert canonicalize_args(~[Arg {name: ~"Option",
                                         inner: ~[Arg {name: ~"T", inner: ~[]}]}],
                                  Arg {name: ~"T", inner: ~[]})
@@ -200,13 +226,40 @@ mod tests {
     }
 
     #[test]
-    fn test_vector_args() {
+    fn test_canonicalize_vector_args() {
         assert canonicalize_args(~[Arg {name: ~"[]",
                                         inner: ~[Arg {name: ~"T", inner: ~[]}]}],
                                  Arg {name: ~"T", inner: ~[]})
             == (~[Arg {name: ~"[]",
                        inner: ~[Arg {name: ~"A", inner: ~[]}]}],
                 Arg {name: ~"A", inner: ~[]}, 1);
+    }
+
+    #[test]
+    fn test_canonicalize_tuple_args() {
+        assert canonicalize_args(~[Arg {name: ~"()",
+                                        inner: ~[Arg {name: ~"T", inner: ~[]}]}],
+                                 Arg {name: ~"T", inner: ~[]})
+            == (~[Arg {name: ~"()",
+                       inner: ~[Arg {name: ~"A", inner: ~[]}]}],
+                Arg {name: ~"A", inner: ~[]}, 1);
+    }
+
+    #[test]
+    fn test_replace_arg_name() {
+        let a = Arg {name: ~"T", inner: ~[]};
+        assert replace_arg_name(&a, @~"T", @~"U").name == ~"U";
+        assert replace_arg_name(&a, @~"V", @~"U").name == ~"T";
+
+        let b = Arg {name: ~"T", inner: ~[copy a]};
+        let b_rep = replace_arg_name(&b, @~"T", @~"U");
+        assert b_rep.name == ~"U";
+        assert b_rep.inner[0].name == ~"U";
+
+        let b = Arg {name: ~"V", inner: ~[copy a]};
+        let b_rep = replace_arg_name(&b, @~"T", @~"U");
+        assert b_rep.name == ~"V";
+        assert b_rep.inner[0].name == ~"U";
     }
 
     #[test]

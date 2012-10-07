@@ -191,6 +191,12 @@ mod tests {
                    Arg {name: ~"str", inner: ~[]}],
                  Arg {name: ~"bool", inner: ~[]},
                  0);
+        assert load_args(~"fn foo(bar: Option<T>) -> bool",
+                         None) ==
+                (~[Arg {name: ~"Option",
+                        inner: ~[Arg {name: ~"A", inner: ~[]}]}],
+                 Arg {name: ~"bool", inner: ~[]},
+                 1);
     }
     fn test_method_args() {
         assert load_args(~"fn ne(other: & Option<T>) -> bool",

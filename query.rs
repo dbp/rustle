@@ -116,6 +116,17 @@ fn generalize_queries(args: ~[Arg], ret: Arg, l: uint, q: &mut ~[Query]) {
 mod tests {
 
     #[test]
+    fn test_search_trie() {
+        let def = @Definition { name: ~"foo", path: ~"foo",
+            desc: ~"", anchor: ~"function-foo", args: ~[],
+            ret: Arg {name: ~"()", inner: ~[]}, signature: ~"fn foo()"};
+        let trie =
+            Trie { children: HashMap(),
+                   definitions: ~[def]};
+        // FIXME
+    }
+
+    #[test]
     fn test_generalize_queries() {
         let args = ~[Arg {name: ~"A", inner: ~[]},
                      Arg {name: ~"str", inner: ~[]},
@@ -123,12 +134,10 @@ mod tests {
         let ret = Arg {name: ~"A", inner: ~[]};
         let mut queries = ~[];
         generalize_queries(args, ret, 1, &mut queries);
-        error!("%?",queries);
-        assert queries.len() == 1;
-        assert queries[0] == Query { args: ~[Arg { name: ~"A", inner: ~[] },
-                                             Arg { name: ~"B", inner: ~[] },
-                                             Arg { name: ~"A", inner: ~[] }],
-                                     ret: Arg { name: ~"A", inner: ~[] } };
+        assert queries == ~[Query { args: ~[Arg { name: ~"A", inner: ~[] },
+                                            Arg { name: ~"B", inner: ~[] },
+                                            Arg { name: ~"A", inner: ~[] }],
+                                    ret: Arg { name: ~"A", inner: ~[] } }];
     }
 
 }
