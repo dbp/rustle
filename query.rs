@@ -26,27 +26,28 @@ pub fn query(q: ~str) -> ~[Query] {
 
 // search_type looks for matches from the query in the data, and prints out
 // what it finds
-pub fn search_type(qs: ~[Query], d: &Data) {
+pub fn search_type(qs: ~[Query], d: &Data) -> ~[@Definition] {
+    let mut results = ~[];
     for qs.each |q| {
-        let results = match vec::len(q.args) {
-                0 => search_bucket(&d.ar0, q),
-                1 => search_bucket(&d.ar1, q),
-                2 => search_bucket(&d.ar2, q),
-                3 => search_bucket(&d.ar3, q),
-                4 => search_bucket(&d.ar4, q),
-                5 => search_bucket(&d.ar5, q),
-                _ => search_bucket(&d.arn, q)
-            };
-        for results.each |r| {
-            io::println(r.show());
-        }
+        results.push_all_move(match vec::len(q.args) {
+                                0 => search_bucket(&d.ar0, q),
+                                1 => search_bucket(&d.ar1, q),
+                                2 => search_bucket(&d.ar2, q),
+                                3 => search_bucket(&d.ar3, q),
+                                4 => search_bucket(&d.ar4, q),
+                                5 => search_bucket(&d.ar5, q),
+                                _ => search_bucket(&d.arn, q)
+                            });
     }
+    return results;
 }
 
 // search_name looks for a function by name, prefix only
-pub fn search_name(q: ~str, d: &Data) {
+pub fn search_name(q: ~str, d: &Data) -> ~[@Definition] {
     let mut name = copy q;
-    search_trie(d.names, &mut name, &q);
+    let mut results = ~[];
+    search_trie(d.names, &mut name, &q, &mut results);
+    return results;
 }
 
 // search_bucket looks for matches in a bucket
@@ -62,27 +63,26 @@ pure fn search_bucket(b: &Bucket, q: &Query) -> ~[@Definition] {
 }
 
 // search_trie looks for matching definitions by name
-fn search_trie(t: @Trie, n: &mut ~str, q: &~str) {
-    fn find_defs(t: @Trie, q: &~str) {
+fn search_trie(t: @Trie, n: &mut ~str, q: &~str, r: &mut ~[@Definition]) {
+    fn find_defs(t: @Trie, q: &~str, r: &mut ~[@Definition]) {
         // go through everything at this level, and any deeper
         // str::contains should be pure, but isn't, hence the escape-hatch
-        let matches = vec::filter(t.definitions, |d| { unsafe {d.name.contains(*q)} });
-        for matches.each |d| {
-            io::println(d.show());
-        }
+        r.push_all_move(vec::filter(t.definitions, |d| {
+            unsafe {d.name.contains(*q)}
+        }));
         for t.children.each_value |c| {
-            find_defs(c, q);
+            find_defs(c, q, r);
         }
     }
     if n.len() == 0 {
         // at level, look for definition
-        find_defs(t, q);
+        find_defs(t, q, r);
     } else {
         // look deeper, if we can
         let c = str::from_char(str::shift_char(n));
         match t.children.find(c) {
             None => return,
-            Some(child) => search_trie(child, n, q)
+            Some(child) => search_trie(child, n, q, r)
         }
     }
 }
@@ -121,9 +121,26 @@ mod tests {
             desc: ~"", anchor: ~"function-foo", args: ~[],
             ret: Arg {name: ~"()", inner: ~[]}, signature: ~"fn foo()"};
         let trie =
-            Trie { children: HashMap(),
+            @Trie { children: HashMap(),
                    definitions: ~[def]};
-        // FIXME
+        let mut n = ~"";
+        let q = ~"fo";
+        let mut r = ~[];
+        search_trie(trie, &mut n, &q, &mut r);
+        assert r == ~[def];
+
+        let trie2 = @Trie { children: HashMap(),
+                   definitions: ~[]};
+        trie2.children.insert(~"f", trie);
+        r = ~[];
+        n = ~"f";
+        search_trie(trie2, &mut n, &q, &mut r);
+        assert r == ~[def];
+
+        r = ~[];
+        n = ~"a";
+        search_trie(trie2, &mut n, &q, &mut r);
+        assert r == ~[];
     }
 
     #[test]

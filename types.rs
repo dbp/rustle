@@ -31,6 +31,21 @@ impl Query : cmp::Eq {
 struct Definition { name: ~str, path: ~str, anchor: ~str, desc: ~str,
                     args: ~[Arg], ret: Arg, signature: ~str }
 
+impl Definition : cmp::Eq {
+    pure fn eq(other: &Definition) -> bool {
+        (self.name == other.name) && (self.path == other.path) &&
+        (self.anchor == other.anchor) && (self.desc == other.desc) &&
+        (self.args == other.args) && (self.ret == other.ret) &&
+        (self.signature == other.signature)
+    }
+    pure fn ne(other: &Definition) -> bool {
+        (self.name != other.name) || (self.path != other.path) ||
+        (self.anchor != other.anchor) || (self.desc != other.desc) ||
+        (self.args != other.args) || (self.ret != other.ret) ||
+        (self.signature != other.signature)
+    }
+}
+
 // fn show_def returns a representation of the definition suitable for printing
 impl Definition {
     fn show() -> ~str {

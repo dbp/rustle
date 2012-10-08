@@ -48,10 +48,14 @@ fn run_search(q: ~str, d: &Data) {
         // build query
         let queries = query::query(q);
         // search
-        query::search_type(queries, d);
+        for query::search_type(queries, d).each |d| {
+            io::println(d.show());
+        }
     } else {
         // this is a search by name
-        query::search_name(q, d);
+        for query::search_name(q, d).each |d| {
+            io::println(d.show());
+        }
     }
 }
 
