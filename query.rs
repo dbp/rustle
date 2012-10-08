@@ -67,7 +67,7 @@ fn search_trie(t: @Trie, n: &mut ~str, q: &~str, r: &mut ~[@Definition]) {
     fn find_defs(t: @Trie, q: &~str, r: &mut ~[@Definition]) {
         // go through everything at this level, and any deeper
         // str::contains should be pure, but isn't, hence the escape-hatch
-        r.push_all_move(vec::filter(t.definitions, |d| {
+        r.push_all_move(vec::filter(t.defs, |d| {
             unsafe {d.name.contains(*q)}
         }));
         for t.children.each_value |c| {
@@ -116,13 +116,26 @@ fn generalize_queries(args: ~[Arg], ret: Arg, l: uint, q: &mut ~[Query]) {
 mod tests {
 
     #[test]
+    fn test_search_bucket() {
+        let def = @Definition { name: ~"foo", path: ~"foo",
+            desc: ~"", anchor: ~"function-foo", args: ~[],
+            ret: Arg {name: ~"()", inner: ~[]}, signature: ~"fn foo()"};
+        let bucket = Bucket {defs: ~[def]};
+        let query = Query { args: ~[], ret: copy def.ret };
+        assert search_bucket(&bucket, &query) == ~[def];
+
+        let query2 = Query { args: ~[copy def.ret], ret: copy def.ret };
+        assert search_bucket(&bucket, &query2) == ~[];
+    }
+
+    #[test]
     fn test_search_trie() {
         let def = @Definition { name: ~"foo", path: ~"foo",
             desc: ~"", anchor: ~"function-foo", args: ~[],
             ret: Arg {name: ~"()", inner: ~[]}, signature: ~"fn foo()"};
         let trie =
             @Trie { children: HashMap(),
-                   definitions: ~[def]};
+                    defs: ~[def]};
         let mut n = ~"";
         let q = ~"fo";
         let mut r = ~[];
@@ -130,7 +143,7 @@ mod tests {
         assert r == ~[def];
 
         let trie2 = @Trie { children: HashMap(),
-                   definitions: ~[]};
+                            defs: ~[]};
         trie2.children.insert(~"f", trie);
         r = ~[];
         n = ~"f";

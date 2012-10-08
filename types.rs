@@ -61,7 +61,7 @@ struct Bucket { mut defs: ~[@Definition] }
 // most searches will be by the beginning of names, and can expand later.
 // This allows a fast simple implementation (hashing used here for simplicity
 // as well, though it is totally unnecessary).
-struct Trie { children: HashMap<~str,@Trie>, mut definitions: ~[@Definition] }
+struct Trie { children: HashMap<~str,@Trie>, mut defs: ~[@Definition] }
 
 // Data stores all the definitions in buckets, based on function arity.
 struct Data { mut ar0: Bucket, mut ar1: Bucket, mut ar2: Bucket,
@@ -70,7 +70,7 @@ struct Data { mut ar0: Bucket, mut ar1: Bucket, mut ar2: Bucket,
 
 fn empty_data() -> Data {
     let empty_bucket = Bucket { defs: ~[] };
-    let empty_trie = Trie { children: HashMap(), definitions: ~[] };
+    let empty_trie = Trie { children: HashMap(), defs: ~[] };
     Data { ar0: empty_bucket, ar1: empty_bucket, ar2: empty_bucket,
            ar3: empty_bucket, ar4: empty_bucket, ar5: empty_bucket,
            arn: empty_bucket, names: @empty_trie}
@@ -104,7 +104,7 @@ fn letters(n: uint) -> @~str {
         23 => @~"X",
         24 => @~"Y",
         25 => @~"Z",
-        _  => fail ~"too many letters"
+        _  => fail ~"not enough letters"
     }
 }
 

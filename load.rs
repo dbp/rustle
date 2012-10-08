@@ -162,7 +162,7 @@ fn bucket_drop(b: &Bucket, d: @Definition) {
 fn add_name(t: @Trie, n: &mut ~str, d: @Definition) {
     if n.len() == 0 {
         // found where to put it
-        t.definitions.push(d);
+        t.defs.push(d);
     } else {
         // move down a level
         let c = str::from_char(str::shift_char(n));
@@ -170,7 +170,7 @@ fn add_name(t: @Trie, n: &mut ~str, d: @Definition) {
         match t.children.find(copy c) {
             None => {
                 // add a new branch
-                v = @Trie { children: HashMap(), definitions: ~[] };
+                v = @Trie { children: HashMap(), defs: ~[] };
                 t.children.insert(c, v);
             }
             Some(child) => {
