@@ -44,10 +44,6 @@ Longer term:
  * match partial function signatures
 
 
-todo
-----
-* disregarding order of parameters
-
 
 authors
 -------

@@ -20,7 +20,7 @@ fn main() {
 
     if args.len() == 1 {
         // start interactive loop
-        io::println(~"Rustle, a Rust api search, by type signature, v. 0.1.");
+        io::println(~"Rustle, a Rust api search, by type signature (or name), v. 0.1.");
         io::println(~"Type in a type signature, like \"Option<A> -> A\". Ctrl-D to quit");
         loop {
             let stdin = io::stdin();
@@ -60,7 +60,7 @@ fn run_search(q: ~str, d: &Data) {
 }
 
 fn usage() {
-    io::println(~"Rustle, a Rust api search, by type signature, v. 0.1.");
+    io::println(~"Rustle, a Rust api search, by type signature (or name), v. 0.1.");
     io::println(~"Usage: rustle -h | --help             -- this message");
     io::println(~"       rustle                         -- start interactive mode");
     io::println(~"       rustle \"[(A,B)] -> ([A],[B])\"  -- query directly");

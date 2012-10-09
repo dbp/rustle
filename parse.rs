@@ -42,11 +42,7 @@ pub fn parse_arg(su: &~str) -> Arg {
                 let end = option::get(&str::rfind_char(s, ']'));
                 let mut vs = str::trim(str::slice(s, 1, end));
                 // we drop any modifiers: const, mut.
-                for [~"const", ~"mut"].each |m| {
-                    if option::is_some(&str::find_str(vs, *m)) {
-                        vs = str::trim(str::slice(s, str::len(*m)+1, end));
-                    }
-                }
+                vs = drop_modifiers(&vs);
                 return Arg { name: ~"[]",
                              inner: ~[parse_arg(&vs)] };
             }
@@ -136,9 +132,20 @@ pub fn replace_arg_name(a: &Arg, old: @~str, new: @~str) -> Arg {
                                 |i| {replace_arg_name(i,old,new)})};
 }
 
+// drop_modifiers takes off const or mut. note that it will only take off one
+fn drop_modifiers(s: &~str) -> ~str {
+    let end = s.len();
+    for [~"const ", ~"mut "].each |m| {
+        if option::is_some(&str::find_str(*s, *m)) {
+            return str::trim(str::slice(*s, str::len(*m), end));
+        }
+    }
+    return copy *s;
+}
+
 // trim_sigils trims off the sigils off of types
 pub fn trim_sigils(s: &str) -> ~str {
-    str::trim_left_chars(s, &[' ', '&', '~', '@', '+'])
+    drop_modifiers(&str::trim_left_chars(s, &[' ', '&', '~', '@', '+']))
 }
 
 pub fn trim_parens(s: ~str) -> ~str {
@@ -260,6 +267,13 @@ mod tests {
         let b_rep = replace_arg_name(&b, @~"T", @~"U");
         assert b_rep.name == ~"V";
         assert b_rep.inner[0].name == ~"U";
+    }
+
+    #[test]
+    fn test_drop_modifiers() {
+        assert drop_modifiers(&~"const hello") == ~"hello";
+        assert drop_modifiers(&~"mut hello") == ~"hello";
+        assert drop_modifiers(&~"hello") == ~"hello";
     }
 
     #[test]

@@ -1,10 +1,41 @@
 //! This file contains type definitions
 
+extern mod std;
+use std::treemap::*;
+type Set<T> = TreeMap<T,()>;
+
+use core::cmp::{Eq, Ord};
+
+// Note that we are using treemaps to get unordered comparison.
+// because vecs are much more supported, we only convert to sets
+// when we compare. this is inefficient, but intended to be temporary.
+// once a more supported container is in the standard library, this will
+// all be pulled out, and sets will be used throughout.
+fn Set<T: Copy Eq Ord>() -> Set<T> {
+    TreeMap()
+}
+fn set_equals<K: Copy Eq Ord>(t1: &const Set<K>,
+                              t2: &const Set<K>)
+                            -> bool {
+    let mut v1 = ~[];
+    let mut v2 = ~[];
+    traverse(*t1, |k,_v| { v1.push((copy *k))} );
+    traverse(*t2, |k,_v| { v2.push((copy *k))} );
+    return v1 == v2;
+}
+pub fn set_from_vec<T: Copy Ord Eq>(v: &~[T]) -> Set<T> {
+    let mut s = Set();
+    for v.each |e| {
+        insert(s,*e,());
+    }
+    return s;
+}
+
 // an Arg is a name, like str or Option, and then an optional list
 // of parameters. ex: Option<T> is "Option", ["T"] (roughly).
 struct Arg { name: ~str, inner: ~[Arg] }
 
-impl Arg : cmp::Eq {
+impl Arg : Eq {
     pure fn eq(other: &Arg) -> bool {
         (self.name == other.name) && (self.inner == other.inner)
     }
@@ -13,10 +44,26 @@ impl Arg : cmp::Eq {
     }
 }
 
-// a query is a ...
+impl Arg : Ord {
+    // we are only ordering on the name, at least for now
+    pure fn ge(other: &Arg) -> bool {
+        (self.name >= other.name)
+    }
+    pure fn le(other: &Arg) -> bool {
+        (self.name <= other.name)
+    }
+    pure fn gt(other: &Arg) -> bool {
+        (self.name > other.name)
+    }
+    pure fn lt(other: &Arg) -> bool {
+        (self.name < other.name)
+    }
+}
+
+// a query is a set of arguments and a return type
 struct Query { args: ~[Arg], ret: Arg }
 
-impl Query : cmp::Eq {
+impl Query : Eq {
     pure fn eq(other: &Query) -> bool {
         (self.args == other.args) && (self.ret == other.ret)
     }
@@ -31,7 +78,7 @@ impl Query : cmp::Eq {
 struct Definition { name: ~str, path: ~str, anchor: ~str, desc: ~str,
                     args: ~[Arg], ret: Arg, signature: ~str }
 
-impl Definition : cmp::Eq {
+impl Definition : Eq {
     pure fn eq(other: &Definition) -> bool {
         (self.name == other.name) && (self.path == other.path) &&
         (self.anchor == other.anchor) && (self.desc == other.desc) &&
@@ -112,12 +159,29 @@ fn letters(n: uint) -> @~str {
 mod tests {
 
     #[test]
+    fn test_set_equals() {
+        let v1 : ~[uint] = ~[1,2,4];
+        let v2 : ~[uint] = ~[2,1,4];
+        assert set_equals(&set_from_vec(&v1), &set_from_vec(&v2));
+
+        let u1 = ~[Arg {name: ~"uint", inner: ~[]},
+                   Arg {name: ~"[]", inner: ~[Arg {name: ~"A", inner: ~[]}]},
+                   Arg {name: ~"A", inner: ~[]}];
+        let u2 = ~[Arg {name: ~"[]", inner: ~[Arg {name: ~"A", inner: ~[]}]},
+                   Arg {name: ~"A", inner: ~[]},
+                   Arg {name: ~"uint", inner: ~[]}];
+        assert set_equals(&set_from_vec(&u1), &set_from_vec(&u2));
+    }
+
+    #[test]
     fn arg_eq() {
-        assert Arg { name: ~"uint", inner: ~[] } == Arg { name: ~"uint", inner: ~[] };
-        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] }
-                 == Arg { name: ~"uint", inner: ~[] });
-        assert !(Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }] }
-                 == Arg { name: ~"uint", inner: ~[Arg { name: ~"B", inner: ~[] }] });
+        assert Arg { name: ~"uint", inner: ~[] }
+            == Arg { name: ~"uint", inner: ~[] };
+        assert Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }]}
+                 != Arg { name: ~"uint", inner: ~[] };
+        assert Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }]}
+                 != Arg { name: ~"uint",
+                          inner: ~[Arg { name: ~"B", inner: ~[] }] };
     }
 
     #[test]
