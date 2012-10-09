@@ -45,6 +45,9 @@ Lower priorities:
 Longer term:
  * match partial function signatures
 
+changelog
+---------
+0.4 - initial version. major version numbers will be tied to rust version.
 
 authors
 -------
