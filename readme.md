@@ -12,7 +12,7 @@ usage
 3. `./rustle` start up rustle. Note that it expects rustle.data to be in the current directory.
 4. type query!
 
-(alternatively, you can run it with single searches, like `./rustle "Option<A> -> bool`, but it will have to load in the data for each query, so the interactive mode is a lot faster).
+(Alternatively, you can run it with single searches, like `./rustle "Option<A> -> bool`, but it will have to load in the data for each query, so the interactive mode is a lot faster. Also - using a readline wrapper like `rlwrap` is recommended, so you get line editing and history. `rlwrap ./rustle` will work.).
 
 how
 ---
