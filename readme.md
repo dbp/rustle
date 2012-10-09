@@ -44,7 +44,6 @@ Longer term:
  * match partial function signatures
 
 
-
 authors
 -------
 Daniel Patterson (dbp)

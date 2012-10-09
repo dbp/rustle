@@ -10,7 +10,7 @@ use core::cmp::{Eq, Ord};
 // because vecs are much more supported, we only convert to sets
 // when we compare. this is inefficient, but intended to be temporary.
 // once a more supported container is in the standard library, this will
-// all be pulled out, and sets will be used throughout.
+// all be pulled out, and some sort of set will be used throughout.
 fn Set<T: Copy Eq Ord>() -> Set<T> {
     TreeMap()
 }
@@ -44,8 +44,8 @@ impl Arg : Eq {
     }
 }
 
+// we are only ordering on the name, at least for now
 impl Arg : Ord {
-    // we are only ordering on the name, at least for now
     pure fn ge(other: &Arg) -> bool {
         (self.name >= other.name)
     }
