@@ -102,7 +102,7 @@ impl Definition {
 }
 
 // A bucket holds a bunch of definitions
-struct Bucket { mut defs: ~[@Definition] }
+struct Bucket { defs: ~[@Definition] }
 
 // A trie is used to look up names efficiently by prefix. We assume that
 // most searches will be by the beginning of names, and can expand later.
@@ -111,9 +111,9 @@ struct Bucket { mut defs: ~[@Definition] }
 struct Trie { children: HashMap<~str,@Trie>, mut defs: ~[@Definition] }
 
 // Data stores all the definitions in buckets, based on function arity.
-struct Data { mut ar0: Bucket, mut ar1: Bucket, mut ar2: Bucket,
-              mut ar3: Bucket, mut ar4: Bucket, mut ar5: Bucket,
-              mut arn: Bucket, mut names: @Trie }
+struct Data { ar0: Bucket, ar1: Bucket, ar2: Bucket,
+              ar3: Bucket, ar4: Bucket, ar5: Bucket,
+              arn: Bucket, names: @Trie }
 
 fn empty_data() -> Data {
     let empty_bucket = Bucket { defs: ~[] };

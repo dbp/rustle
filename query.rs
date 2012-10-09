@@ -28,21 +28,17 @@ pub fn query(q: ~str) -> ~[Query] {
 // what it finds
 pub fn search_type(qs: ~[Query], d: &Data) -> ~[@Definition] {
     let mut results = ~[];
-    let mut n = 0;
-    let len = qs.len();
-    while n < len {
-        let q = copy qs[n];
+    for qs.each |q| {
         let res = match vec::len(q.args) {
-                                0 => search_bucket(&mut d.ar0, &q),
-                                1 => search_bucket(&mut d.ar1, &q),
-                                2 => search_bucket(&mut d.ar2, &q),
-                                3 => search_bucket(&mut d.ar3, &q),
-                                4 => search_bucket(&mut d.ar4, &q),
-                                5 => search_bucket(&mut d.ar5, &q),
-                                _ => search_bucket(&mut d.arn, &q)
+                                0 => search_bucket(&d.ar0, q),
+                                1 => search_bucket(&d.ar1, q),
+                                2 => search_bucket(&d.ar2, q),
+                                3 => search_bucket(&d.ar3, q),
+                                4 => search_bucket(&d.ar4, q),
+                                5 => search_bucket(&d.ar5, q),
+                                _ => search_bucket(&d.arn, q)
                             };
         results.push_all_move(res);
-        n += 1;
     }
     return results;
 }
@@ -56,20 +52,16 @@ pub fn search_name(q: ~str, d: &Data) -> ~[@Definition] {
 }
 
 // search_bucket looks for matches in a bucket
-fn search_bucket(b: &mut Bucket, q: &Query) -> ~[@Definition] {
-    let mut n = 0;
-    let len = b.defs.len();
+fn search_bucket(b: &Bucket, q: &Query) -> ~[@Definition] {
     let mut results = ~[];
     let q_args = set_from_vec(&q.args);
 
-    while (n < len) {
-        let d = b.defs[n];
+    for b.defs.each |d| {
         let d_args = set_from_vec(&d.args);
         let e = set_equals(&d_args, &q_args);
         if e && d.ret == q.ret {
-            results.push(d);
+            results.push(*d);
         }
-        n += 1;
     }
 
     // only give 10 responses per query
@@ -137,12 +129,12 @@ mod tests {
         let def = @Definition { name: ~"foo", path: ~"foo",
             desc: ~"", anchor: ~"function-foo", args: ~[],
             ret: Arg {name: ~"()", inner: ~[]}, signature: ~"fn foo()"};
-        let mut bucket = Bucket {defs: ~[def]};
+        let bucket = Bucket {defs: ~[def]};
         let query = Query { args: ~[], ret: copy def.ret };
-        assert search_bucket(&mut bucket, &query) == ~[def];
+        assert search_bucket(&bucket, &query) == ~[def];
 
         let query2 = Query { args: ~[copy def.ret], ret: copy def.ret };
-        assert search_bucket(&mut bucket, &query2) == ~[];
+        assert search_bucket(&bucket, &query2) == ~[];
     }
 
     #[test]

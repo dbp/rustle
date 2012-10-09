@@ -132,17 +132,17 @@ fn load_args(arg_list: ~str, self: Option<~str>) -> (~[Arg], Arg, uint) {
 // bucket_sort takes definitions and builds the Data structure, by putting
 // them into the appropriate buckets
 fn bucket_sort(ds: ~[(@Definition, bool)]) -> Data {
-    let data = empty_data();
+    let mut data = empty_data();
     for vec::each(ds) |dc| {
         let (d, canonical) = *dc;
         match vec::len(d.args) {
-            0 => bucket_drop(&data.ar0, d),
-            1 => bucket_drop(&data.ar1, d),
-            2 => bucket_drop(&data.ar2, d),
-            3 => bucket_drop(&data.ar3, d),
-            4 => bucket_drop(&data.ar4, d),
-            5 => bucket_drop(&data.ar5, d),
-            _ => bucket_drop(&data.arn, d)
+            0 => bucket_drop(&mut data.ar0, d),
+            1 => bucket_drop(&mut data.ar1, d),
+            2 => bucket_drop(&mut data.ar2, d),
+            3 => bucket_drop(&mut data.ar3, d),
+            4 => bucket_drop(&mut data.ar4, d),
+            5 => bucket_drop(&mut data.ar5, d),
+            _ => bucket_drop(&mut data.arn, d)
         }
         if canonical {
             let mut name = copy d.name;
@@ -153,7 +153,7 @@ fn bucket_sort(ds: ~[(@Definition, bool)]) -> Data {
 }
 
 // bucket_drop places a definition into the right part of the bucket
-fn bucket_drop(b: &Bucket, d: @Definition) {
+fn bucket_drop(b: &mut Bucket, d: @Definition) {
     // for now, just put all in np0
     b.defs.push(d);
 }
