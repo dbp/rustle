@@ -17,8 +17,8 @@ pub fn query(q: ~str) -> ~[Query] {
     let mut queries = ~[Query {args: args, ret: ret}];
 
     generalize_queries(args,ret,l,&mut queries);
-    // only take first 3 generalizations
-    if vec::len(queries) > 3 {
+    // only take first 5 generalizations
+    if vec::len(queries) > 5 {
         vec::truncate(&mut queries, 3);
     }
     return queries;
