@@ -1,6 +1,8 @@
 about
 -----
-rustle is an api search tool inspired by [Hoogle](http://www.haskell.org/hoogle/). It allows you to search the core api (and hopefully std soon) by function signatures. An example would be if you were wondering how to get the value out of an Either, you could search `Either<A,B> -> A` and you would get the following result: `core::either::unwrap_left: fn unwrap_left<T, U>(eith: Either<T, U>) -> T - Retrieves the value in the left branch. Fails if the either is Right.` Right now it is in very early stages - a proof of concept (though a working one) as much as anything else.
+rustle is an api search tool inspired by [Hoogle](http://www.haskell.org/hoogle/). It allows you to search the core api (and hopefully std soon) by function signatures. An example would be if you were wondering how to get the value out of an Either, you could search
+`Either<A,B> -> A` and you would get the following result: `core::either::unwrap_left: fn unwrap_left<T, U>(eith: Either<T, U>) -> T - Retrieves the value in the left branch.`
+`Fails if the either is Right.` Right now it is in very early stages - a proof of concept (though a working one) as much as anything else.
 
 usage
 -----
@@ -14,9 +16,9 @@ usage
 
 how
 ---
-Right now the data is all scraped out of the documentation that rustdoc creates. We then parse out the arguments and return types (and self types for methods), discarding pointer types and some other stuff (like mut/const inside vector types). We then replace polymorphic type variables (single uppercase letters, by our assumption) in a way that is consistent (so, for example, you can search for Option<A> -> A and match against Option<T> -> T), and finally store all of this based on the number of arguments that a function has (stored this way to make searching faster). We also create some variants in the case of polymorphic functions - so for example, Either<A,B> -> A will also be recorded as Either<A,A> -> A.
+Right now the data is all scraped out of the documentation that rustdoc creates. We then parse out the arguments and return types (and self types for methods), discarding pointer types and some other stuff (like mut/const inside vector types). We then replace polymorphic type variables (single uppercase letters, by our assumption) in a way that is consistent (so, for example, you can search for `Option<A> -> A` and match against `Option<T> -> T`), and finally store all of this based on the number of arguments that a function has (stored this way to make searching faster). We also create some variants in the case of polymorphic functions - so for example, `Either<A,B> -> A` will also be recorded as `Either<A,A> -> A`.
 
-To query, we parse the query into the same form, and now expand it to more general forms. So for example, Either<int,uint> -> int will also create Either<A,uint> -> A and Either<A, B> -> A. We then search against all of those (from most specific to most general), returning anything that matches.
+To query, we parse the query into the same form, and now expand it to more general forms. So for example, `Either<int,uint> -> int` will also create `Either<A,uint> -> A` and `Either<A, B> -> A`. We then search against all of those (from most specific to most general), returning anything that matches. The comparisons are done without regard for the order of arguments (but only the top level - ie, `Either<A,B>` will not match `Either<B,A>` - though hopefully the combination of consistent ordering of polymorphic types will help alleviate problems here.)
 
 We will also search by function name if the query does not have a `->` or `,` - the search is prefix only, for now. ie, to find `each_char`, `each` will work, not `char`.
 
