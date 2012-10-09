@@ -66,9 +66,8 @@ pure fn search_bucket(b: &Bucket, q: &Query) -> ~[@Definition] {
 fn search_trie(t: @Trie, n: &mut ~str, q: &~str, r: &mut ~[@Definition]) {
     fn find_defs(t: @Trie, q: &~str, r: &mut ~[@Definition]) {
         // go through everything at this level, and any deeper
-        // str::contains should be pure, but isn't, hence the escape-hatch
         r.push_all_move(vec::filter(t.defs, |d| {
-            unsafe {d.name.contains(*q)}
+            str::contains(d.name, *q)
         }));
         for t.children.each_value |c| {
             find_defs(c, q, r);

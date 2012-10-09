@@ -1,13 +1,13 @@
 about
 -----
-rustle is an api search tool inspired by [Hoogle](http://www.haskell.org/hoogle/). It allows you to search the core api (and hopefully std soon) by function signatures. An example would be if you were wondering how to get the value out of an Either, you could search `Either<A,B> -> A` and you would get the following result: `core::either::unwrap_left: fn unwrap_left<T, U>(eith: Either<T, U>) -> T - Retrieves the value in the left branch. Fails if the either is Right.`
+rustle is an api search tool inspired by [Hoogle](http://www.haskell.org/hoogle/). It allows you to search the core api (and hopefully std soon) by function signatures. An example would be if you were wondering how to get the value out of an Either, you could search `Either<A,B> -> A` and you would get the following result: `core::either::unwrap_left: fn unwrap_left<T, U>(eith: Either<T, U>) -> T - Retrieves the value in the left branch. Fails if the either is Right.` Right now it is in very early stages - a proof of concept (though a working one) as much as anything else.
 
 usage
 -----
 
 1. `rustc rustle.rc` build rustle
 2. `runghc scrape.hs /path/to/rust/doc` scrape documentation, creates rustle.data file. note that this is optional and requires the Haskell GHC compiler (as well as tagsoup and json from Hackage), as the repository includes prescraped data (but if the docs change, the data will be out of date).
-3. `./rustle` start up rustle
+3. `./rustle` start up rustle. Note that it expects rustle.data to be in the current directory.
 4. type query!
 
 (alternatively, you can run it with single searches, like `./rustle "Option<A> -> bool`, but it will have to load in the data for each query, so the interactive mode is a lot faster).
@@ -28,7 +28,7 @@ There are three main problems:
 
 2. No understanding of traits. All polymorphic parameters (identified by being a single capital letter) are treated as the same. This is a major limitation, and because of this (and the lack of heuristics), we currently don't include trait implementations in the search results, because they added a lot of results that weren't incredibly useful. Note that we do include methods defined on specific types (so it isn't `impl` that we ignore, but trait impls).
 
-3. We don't currently understand function arguments, so they should match if you type them in verbatim, but that kind of defeats the purpose of this whole thing.
+3. We don't currently understand function arguments, so they should match if you type them in verbatim, but that kind of defeats the purpose of this whole thing. This should be relatively easy to fix.
 
 future
 ------
