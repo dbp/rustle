@@ -33,30 +33,109 @@ pub fn set_from_vec<T: Copy Ord Eq>(v: &~[T]) -> Set<T> {
 
 // an Arg is a name, like str or Option, and then an optional list
 // of parameters. ex: Option<T> is "Option", ["T"] (roughly).
-struct Arg { name: ~str, inner: ~[Arg] }
+// struct Arg { name: ~str, inner: ~[Arg] }
+
+enum Arg {
+    Basic(~str),
+    Parametric(~str, ~[~Arg]),
+    // Tuple and Vecs are really special cases of Parametric types, but
+    // are sufficiently special that it seems worthwhile to handle them
+    // separately.
+    Tuple(~[~Arg]),
+    Vec(~Arg),
+    Constrained(~str, ~[Constraint]),
+    Function(~[~Arg],~Arg)
+}
+
+enum Constraint = ~str;
+
+impl Constraint : Eq {
+    pure fn eq(other: &Constraint) -> bool {
+        *self == **other
+    }
+    pure fn ne(other: &Constraint) -> bool {
+        *self != **other
+    }
+}
+
+impl Constraint : Ord {
+    pure fn ge(other: &Arg) -> bool {
+        *self >= **other
+    }
+    pure fn le(other: &Arg) -> bool {
+        *self <= **other
+    }
+    pure fn gt(other: &Arg) -> bool {
+        *self > **other
+    }
+    pure fn lt(other: &Arg) -> bool {
+        *self < **other
+    }
+}
+
+fn arg_eq(&: &Arg, o: &Arg) -> bool {
+    match (s, o) {
+        (&Basic(ref s1), &Basic(ref s2)) => s1 == s2,
+        (&Parametric(ref s1, ref a1), &Parametric(ref s2, ref a2)) =>
+            (s1 == s2) && (a1 == a2),
+        (&Tuple(a1),&Tuple(a2)) => a1 == a2,
+        (&Vec(t1),&Vec(t2)) => t1 == t2,
+        (&Constrained(s1,c1),&Constrained(s2,c2)) =>
+            (s1 == s2) && (c1 == c2),
+        (&Function(a1,r1),&Function(a2,r2)) => (a1 == a2) && (r1 == r2),
+        _ => false
+    }
+}
 
 impl Arg : Eq {
     pure fn eq(other: &Arg) -> bool {
-        (self.name == other.name) && (self.inner == other.inner)
+        arg_eq(self, *other)
     }
     pure fn ne(other: &Arg) -> bool {
-        (self.name != other.name) || (self.inner != other.inner)
+        !arg_eq(&self, other)
+    }
+}
+
+fn arg_le(s: &Arg, o: &Arg) -> bool {
+    match (s, o) {
+        // we define ordering of variants, and then ordering within variants
+        (&Basic(ref s1), &Basic(ref s2)) => s1 <= s2,
+        (&Parametric(ref s1, ref a1), &Parametric(ref s2, ref a2)) =>
+            if s1 == s2 { a1 <= a2 } else { s1 <= s2 },
+        (&Tuple(a1),&Tuple(a2)) => a1 <= a2,
+        (&Vec(t1),&Vec(t2)) => t1 <= t2,
+        (&Constrained(s1,c1),&Constrained(s2,c2)) =>
+            if s1 == s2 { c1 <= c2 } else { s1 <= s2 },
+        (&Function(a1,r1),&Function(a2,r2)) =>
+            if a1 == a2 { r1 <= r2 } else { a1 <= a2 },
+        (&Basic(_), _) => true,
+        (_, &Basic(_)) => false,
+        (&Parametric(_,_), _) => true,
+        (_, &Parametric(_,_)) => false,
+        (&Tuple(_), _) => true,
+        (_, &Tuple(_)) => false,
+        (&Vec(_), _) => true,
+        (_, &Vec(_)) => false,
+        (&Constrained(_,_), _) => true,
+        (_, &Constrained(_,_)) => false,
+        (&Function(_,_), _) => true,
+        (_, &Function(_,_)) => false,
     }
 }
 
 // we are only ordering on the name, at least for now
 impl Arg : Ord {
     pure fn ge(other: &Arg) -> bool {
-        (self.name >= other.name)
+        !arg_le(&self, other) || arg_eq(&self, other)
     }
     pure fn le(other: &Arg) -> bool {
-        (self.name <= other.name)
+        arg_le(&self, other)
     }
     pure fn gt(other: &Arg) -> bool {
-        (self.name > other.name)
+        !arg_le(&self, other)
     }
     pure fn lt(other: &Arg) -> bool {
-        (self.name < other.name)
+        arg_le(&self, other) && ~arg_eq(&self, other)
     }
 }
 
@@ -164,24 +243,19 @@ mod tests {
         let v2 : ~[uint] = ~[2,1,4];
         assert set_equals(&set_from_vec(&v1), &set_from_vec(&v2));
 
-        let u1 = ~[Arg {name: ~"uint", inner: ~[]},
-                   Arg {name: ~"[]", inner: ~[Arg {name: ~"A", inner: ~[]}]},
-                   Arg {name: ~"A", inner: ~[]}];
-        let u2 = ~[Arg {name: ~"[]", inner: ~[Arg {name: ~"A", inner: ~[]}]},
-                   Arg {name: ~"A", inner: ~[]},
-                   Arg {name: ~"uint", inner: ~[]}];
+        let u1 = ~[Basic(~"uint"),
+                   Vec(Basic(~"A"),
+                   Basic(~"A")];
+        let u2 = ~[Vec(Basic(~"A"),,
+                   Basic(~"A"),
+                   Basic(~"uint")];
         assert set_equals(&set_from_vec(&u1), &set_from_vec(&u2));
     }
 
     #[test]
     fn arg_eq() {
-        assert Arg { name: ~"uint", inner: ~[] }
-            == Arg { name: ~"uint", inner: ~[] };
-        assert Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }]}
-                 != Arg { name: ~"uint", inner: ~[] };
-        assert Arg { name: ~"uint", inner: ~[Arg { name: ~"A", inner: ~[] }]}
-                 != Arg { name: ~"uint",
-                          inner: ~[Arg { name: ~"B", inner: ~[] }] };
+        assert Basic(~"uint") == Basic(~"uint");
+        assert Parametric(~"uint", ~[Basic(~"A")]) != Basic(~"A");
     }
 
     #[test]
@@ -189,7 +263,7 @@ mod tests {
         let d =
             Definition { name: ~"foo", path: ~"core::foo", anchor: ~"fun-foo",
                          desc: ~"foo does bar", args: ~[],
-                         ret: Arg {name: ~"int", inner: ~[]},
+                         ret: Basic(~"int")},
                          signature: ~"fn foo() -> int" };
         assert d.show() == ~"core::foo::foo - fn foo() -> int - foo does bar";
     }

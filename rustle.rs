@@ -35,6 +35,7 @@ fn main() {
                 loop;
             }
             run_search(str::trim(raw), &data)
+            io::stdout().flush();
         }
     } else {
         // single run
