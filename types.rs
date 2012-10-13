@@ -37,15 +37,37 @@ pub fn set_from_vec<T: Copy Ord Eq>(v: &~[T]) -> Set<T> {
 
 enum Arg {
     Basic(~str),
-    Parametric(~str, ~[~Arg]),
+    Parametric(@Arg, ~[@Arg]),
     // Tuple and Vecs are really special cases of Parametric types, but
     // are sufficiently special that it seems worthwhile to handle them
     // separately.
-    Tuple(~[~Arg]),
-    Vec(~Arg),
+    Tuple(~[@Arg]),
+    Vec(@Arg),
     Constrained(~str, ~[Constraint]),
-    Function(~[~Arg],~Arg)
+    Function(~[@Arg],@Arg)
 }
+
+pub fn map_constrained(a: @Arg, f: fn(&~str, &~[Constraint]) -> @Arg) -> @Arg {
+    match *a {
+        Constrained(name, constraints) => f(&name, &constraints),
+        Tuple(args) => @Tuple(vec::map(args, |a| { map_constrained(*a, f)})),
+        Vec(arg) => @Vec(map_constrained(arg, f)),
+        Parametric(arg,args) => {
+            @Parametric(map_constrained(arg, f),
+                       vec::map(args, |a| { map_constrained(*a, f)}))
+        }
+        Function(args, ret) => {
+            @Function(vec::map(args, |a| { map_constrained(*a, f)}),
+                      map_constrained(ret, f))
+        }
+        Basic(_) => a
+    }
+}
+
+pub fn traverse_constrained(a: @Arg, f: fn(&~str)) {
+    map_constrained(a, |n,_cs| { f(n); a } );
+}
+
 
 enum Constraint = ~str;
 
@@ -59,21 +81,21 @@ impl Constraint : Eq {
 }
 
 impl Constraint : Ord {
-    pure fn ge(other: &Arg) -> bool {
+    pure fn ge(other: &Constraint) -> bool {
         *self >= **other
     }
-    pure fn le(other: &Arg) -> bool {
+    pure fn le(other: &Constraint) -> bool {
         *self <= **other
     }
-    pure fn gt(other: &Arg) -> bool {
+    pure fn gt(other: &Constraint) -> bool {
         *self > **other
     }
-    pure fn lt(other: &Arg) -> bool {
+    pure fn lt(other: &Constraint) -> bool {
         *self < **other
     }
 }
 
-fn arg_eq(&: &Arg, o: &Arg) -> bool {
+pure fn arg_eq(s: &Arg, o: &Arg) -> bool {
     match (s, o) {
         (&Basic(ref s1), &Basic(ref s2)) => s1 == s2,
         (&Parametric(ref s1, ref a1), &Parametric(ref s2, ref a2)) =>
@@ -89,14 +111,14 @@ fn arg_eq(&: &Arg, o: &Arg) -> bool {
 
 impl Arg : Eq {
     pure fn eq(other: &Arg) -> bool {
-        arg_eq(self, *other)
+        arg_eq(&self, other)
     }
     pure fn ne(other: &Arg) -> bool {
         !arg_eq(&self, other)
     }
 }
 
-fn arg_le(s: &Arg, o: &Arg) -> bool {
+pure fn arg_le(s: &Arg, o: &Arg) -> bool {
     match (s, o) {
         // we define ordering of variants, and then ordering within variants
         (&Basic(ref s1), &Basic(ref s2)) => s1 <= s2,
@@ -118,8 +140,9 @@ fn arg_le(s: &Arg, o: &Arg) -> bool {
         (_, &Vec(_)) => false,
         (&Constrained(_,_), _) => true,
         (_, &Constrained(_,_)) => false,
-        (&Function(_,_), _) => true,
-        (_, &Function(_,_)) => false,
+        // these are implicit in the above patterns
+        //(&Function(_,_), _) => true,
+        //(_, &Function(_,_)) => false,
     }
 }
 
@@ -135,12 +158,12 @@ impl Arg : Ord {
         !arg_le(&self, other)
     }
     pure fn lt(other: &Arg) -> bool {
-        arg_le(&self, other) && ~arg_eq(&self, other)
+        arg_le(&self, other) && !arg_eq(&self, other)
     }
 }
 
 // a query is a set of arguments and a return type
-struct Query { args: ~[Arg], ret: Arg }
+struct Query { args: ~[@Arg], ret: @Arg }
 
 impl Query : Eq {
     pure fn eq(other: &Query) -> bool {
@@ -155,7 +178,7 @@ impl Query : Eq {
 // definitions are not exactly unique, as they can be made more specific
 // (ie, A,B -> C can be A,A -> B, etc)
 struct Definition { name: ~str, path: ~str, anchor: ~str, desc: ~str,
-                    args: ~[Arg], ret: Arg, signature: ~str }
+                    args: ~[@Arg], ret: @Arg, signature: ~str }
 
 impl Definition : Eq {
     pure fn eq(other: &Definition) -> bool {
@@ -245,8 +268,8 @@ mod tests {
 
         let u1 = ~[Basic(~"uint"),
                    Vec(Basic(~"A"),
-                   Basic(~"A")];
-        let u2 = ~[Vec(Basic(~"A"),,
+                   Basic(~"A"))];
+        let u2 = ~[Vec(Basic(~"A")),
                    Basic(~"A"),
                    Basic(~"uint")];
         assert set_equals(&set_from_vec(&u1), &set_from_vec(&u2));
@@ -255,7 +278,7 @@ mod tests {
     #[test]
     fn arg_eq() {
         assert Basic(~"uint") == Basic(~"uint");
-        assert Parametric(~"uint", ~[Basic(~"A")]) != Basic(~"A");
+        assert Parametric(Basic(~"uint"), ~[Basic(~"A")]) != Basic(~"A");
     }
 
     #[test]
@@ -263,7 +286,7 @@ mod tests {
         let d =
             Definition { name: ~"foo", path: ~"core::foo", anchor: ~"fun-foo",
                          desc: ~"foo does bar", args: ~[],
-                         ret: Basic(~"int")},
+                         ret: Basic(~"int"),
                          signature: ~"fn foo() -> int" };
         assert d.show() == ~"core::foo::foo - fn foo() -> int - foo does bar";
     }

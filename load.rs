@@ -64,28 +64,28 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
                               ret: rv,
                               signature: ty };
             definitions = ~[(canonical,true)];
-            if l > 1 {
-                // generate variants. for now, we just generate one where
-                // all the type variables are the same. the general case has
-                // exponential variations, and furthermore this type of
-                // solution wouldn't make sense. This should cover most
-                // of the cases without getting too crazy.
-                let mut n = 1;
-                let mut vargs = args;
-                let mut ret = rv;
-                while n < l {
-                    let zl = letters(0);
-                    let nl = letters(n);
-                    vargs = vec::map(vargs, |a| {
-                        replace_arg_name(a, nl, zl)
-                    });
-                    ret = replace_arg_name(&ret, nl, zl);
-                    n += 1;
-                }
-                definitions.push((@Definition {args: vargs,
-                                             ret: ret,
-                                             ..*canonical}, false));
-            }
+            // if l > 1 {
+            //     // generate variants. for now, we just generate one where
+            //     // all the type variables are the same. the general case has
+            //     // exponential variations, and furthermore this type of
+            //     // solution wouldn't make sense. This should cover most
+            //     // of the cases without getting too crazy.
+            //     let mut n = 1;
+            //     let mut vargs = args;
+            //     let mut ret = rv;
+            //     while n < l {
+            //         let zl = letters(0);
+            //         let nl = letters(n);
+            //         vargs = vec::map(vargs, |a| {
+            //             replace_arg(a, nl, zl)
+            //         });
+            //         ret = replace_arg_name(&ret, nl, zl);
+            //         n += 1;
+            //     }
+            //     definitions.push((@Definition {args: vargs,
+            //                                  ret: ret,
+            //                                  ..*canonical}, false));
+            // }
         }
         _ => {
             io::println("json definitions must be objects");
@@ -98,7 +98,7 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
 
 // load_args takes a string of a function and returns a list of the
 // argument types, and the return type
-fn load_args(arg_list: ~str, self: Option<~str>) -> (~[Arg], Arg, uint) {
+fn load_args(arg_list: ~str, self: Option<~str>) -> (~[@Arg], @Arg, uint) {
     let self_list = match self {
         None => ~[],
         Some(s) => ~[parse_arg(&trim_sigils(s))]
@@ -108,7 +108,7 @@ fn load_args(arg_list: ~str, self: Option<~str>) -> (~[Arg], Arg, uint) {
     let ret;
     if vec::len(args_ret) == 1 {
         arlen += 1;
-        ret = Basic(~"()");
+        ret = @Basic(~"()");
     } else {
         ret = parse_arg(&str::trim(args_ret[arlen-1]));
     }
@@ -191,7 +191,7 @@ mod tests {
         assert load_args(~"fn foo(bar: Option<T>) -> bool",
                          None) ==
                 (~[Parametric(~"Option",~[Basic(~"A")])],
-                 Basic(~"bool")},
+                 Basic(~"bool"),
                  1);
     }
     fn test_method_args() {

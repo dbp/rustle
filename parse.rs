@@ -18,7 +18,7 @@ pub fn split_arguments(a: &~str) -> ~[~str] {
                 start = i+1;
             }
             '<' => level += 1,
-            '>' => if i == 0 || s.at(i-1) != '-' { level -= 1 },
+            '>' => if i == 0 || s.char_at(i-1) != '-' { level -= 1 },
             '(' => level += 1,
             ')' => level -= 1,
             _ => {}
@@ -28,10 +28,10 @@ pub fn split_arguments(a: &~str) -> ~[~str] {
 }
 
 // parse_arg takes a string and turns it into an Arg
-pub fn parse_arg(su: &~str) -> Arg {
+pub fn parse_arg(su: &~str) -> @Arg {
     let s = trim_sigils(*su);
     if str::len(s) == 0 {
-        return Basic(~"()");
+        return @Basic(~"()");
     }
     let ps = str::splitn_char(str::trim(s), '<', 1);
     if vec::len(ps) == 1 {
@@ -43,56 +43,47 @@ pub fn parse_arg(su: &~str) -> Arg {
                 let mut vs = str::trim(str::slice(s, 1, end));
                 // we drop any modifiers: const, mut.
                 vs = drop_modifiers(&vs);
-                return Vec(parse_arg(&vs));
+                return @Vec(parse_arg(&vs));
             }
             '(' => {
                 // we want to fail if there is no matching paren
                 let end = option::get(&str::rfind_char(s, ')'));
                 let inn = str::trim(str::slice(s, 1, end));
                 let inner = vec::map(split_arguments(&inn), |a| { parse_arg(a) });
-                return Tuple(inner);
+                return @Tuple(inner);
             }
             _ => {
                 // normal type
-                return Basic(copy s);
+                return @Basic(copy s);
             }
         }
     } else {
         let params = split_arguments(&str::split_char(ps[1], '>')[0]);
-        return Parametric(Basic(ps[0]), vec::map(params, |a| {parse_arg(a)}));
+        return @Parametric(@Basic(ps[0]), vec::map(params, |a| {parse_arg(a)}));
     }
 }
 
 // canonicalize_args takes a list of arguments and a return type
 // and replaces generic names consistently (alphabetically, single
 // uppercase letters, in order of frequency)
-pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg,uint) {
+pub fn canonicalize_args(args: ~[@Arg], ret: @Arg) -> (~[@Arg],@Arg,uint) {
     // The basic process is as follows:
     // 1. identify and count polymorphic params
     // 2. sort and assign new letters to them
     // 3. replace names
 
     let identifiers : HashMap<~str, uint> = HashMap();
-    fn walk_ids(a: &Arg, m: &HashMap<~str, uint>) {
-        match a {
-            &Constrained(ref name, _) => m.insert(copy *name),
-            _ => {}
-        }
-        match m.find(copy a.name) {
-            None => {
-                if str::len(a.name) == 1 {
-                    m.insert(copy a.name, 1);
-                } else {
-                    // not counting other types currently
-                }
-            }
-            Some(n) => { m.insert(copy a.name, n+1); }
-        }
-        vec::map(a.inner, |x| { walk_ids(x, m) } );
+    fn walk_ids(a: @Arg, m: &HashMap<~str, uint>) {
+        traverse_constrained(a, |n| {
+            match m.find(copy *n) {
+                None => m.insert(copy *n, 1),
+                Some(num) => m.insert(copy *n, num+1)
+            };
+        });
     }
     // identify / count parameters
-    vec::map(args, |a| { walk_ids(a,&identifiers) } );
-    walk_ids(&ret, &identifiers);
+    vec::map(args, |a| { walk_ids(*a,&identifiers) } );
+    walk_ids(ret, &identifiers);
     // put them in a vec
     let mut identifiers_vec : ~[(~str, uint)] = ~[];
     for identifiers.each |i,c| {
@@ -109,25 +100,41 @@ pub fn canonicalize_args(args: ~[Arg], ret: Arg) -> (~[Arg],Arg,uint) {
         n += 1;
     }
     // now rename args
-    fn rename_arg(a: &Arg, n: &HashMap<~str,@~str>) -> Arg {
-        if n.contains_key(copy a.name) {
-            Arg { name: *n.get(copy a.name),
-                  inner: vec::map(a.inner, |x| { rename_arg(x, n) })}
-        } else {
-            Arg { name: a.name,
-                  inner: vec::map(a.inner, |x| { rename_arg(x, n) })}
-        }
+    fn rename_arg(a: @Arg, n: &HashMap<~str,@~str>) -> @Arg {
+        map_constrained(a, |name, constraints| {
+            let nm = copy *name;
+            if n.contains_key(nm) {
+                @Constrained(copy *n.get(move nm), copy *constraints)
+            } else {
+                @Constrained(move nm, copy *constraints)
+            }
+        })
     }
-    return (vec::map(args, |a| { rename_arg(a, &names) }),
-            rename_arg(&ret,&names), n);
+    return (vec::map(args, |a| { rename_arg(*a, &names) }),
+            rename_arg(ret,&names), n);
 }
 
-// replace_arg_name replaces the name of one argument with another
-pub fn replace_arg_name(a: &Arg, old: @~str, new: @~str) -> Arg {
-    match a {
-        &Basic(name) =>
-            if name == *old { Basic(copy *new) } else { *a },
-        _ -> fail "implement other replace_arg_name cases"
+// replace_arg replaces one argument with another
+pub fn replace_arg(a: @Arg, old: @Arg, new: @Arg) -> @Arg {
+    match *a {
+        b if b == *old => {
+            new
+        }
+        Vec(inner) => {
+            @Vec(replace_arg(inner, old, new))
+        }
+        Tuple(inner) => {
+            @Tuple(vec::map(inner, |i| {replace_arg(*i, old, new)}))
+        }
+        Parametric(a, inner) => {
+            @Parametric(replace_arg(a, old, new),
+                       vec::map(inner, |i| { replace_arg(*i, old, new)}))
+        }
+        Function(args, ret) => {
+            @Function(vec::map(args, |i| { replace_arg(*i, old, new)}),
+                     replace_arg(ret, old, new))
+        }
+        _ => a
     }
 }
 

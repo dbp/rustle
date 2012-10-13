@@ -6,7 +6,7 @@ use parse::*;
 pub fn query(q: ~str) -> ~[Query] {
     let parts = vec::map(str::split_str(q, "->"), |x| { str::trim(*x) });
     let rv = if vec::len(parts) < 2 {
-        Arg { name: ~"()", inner: ~[] }
+        @Basic(~"()")
     } else {
         parse_arg(&parts[1])
     };
@@ -100,25 +100,26 @@ fn search_trie(t: @Trie, n: &mut ~str, q: &~str, r: &mut ~[@Definition]) {
 // by replacing concrete types with polymorphic variables
 // note that how we are doing it now, it will generate (lots of) duplicate
 // queries. l is the next available polymorphic variable letter
-fn generalize_queries(args: ~[Arg], ret: Arg, l: uint, q: &mut ~[Query]) {
-    let arg_names = HashMap();
-    fn get_arg_names(a: &Arg, n: &HashMap<@~str,()>) {
-        n.insert(@copy a.name,());
-        vec::map(a.inner, |a| {get_arg_names(a, n)});
-    }
-    vec::map(args, |a| {get_arg_names(a,&arg_names)});
-    get_arg_names(&ret,&arg_names);
-    // now for all that aren't polymorphic, make them and
-    // search recursively. note that t
-    for arg_names.each_key |n| {
-        if n.len() != 1 && n != @~"[]" && n != @~"()" {
-            let nn = letters(l);
-            let nargs = vec::map(args, |a| { replace_arg_name(a,n,nn) });
-            let nret = replace_arg_name(&ret,n,nn);
-            q.push(Query {args: nargs, ret: nret});
-            generalize_queries(nargs, nret, l+1, q);
-        }
-    }
+fn generalize_queries(args: ~[@Arg], ret: @Arg, l: uint, q: &mut ~[Query]) {
+
+    // let arg_names = HashMap();
+    // fn get_arg_names(a: &Arg, n: &HashMap<@~str,()>) {
+    //     n.insert(@copy a.name,());
+    //     vec::map(a.inner, |a| {get_arg_names(a, n)});
+    // }
+    // vec::map(args, |a| {get_arg_names(a,&arg_names)});
+    // get_arg_names(&ret,&arg_names);
+    // // now for all that aren't polymorphic, make them and
+    // // search recursively. note that t
+    // for arg_names.each_key |n| {
+    //     if n.len() != 1 && n != @~"[]" && n != @~"()" {
+    //         let nn = letters(l);
+    //         let nargs = vec::map(args, |a| { replace_arg_name(a,n,nn) });
+    //         let nret = replace_arg_name(&ret,n,nn);
+    //         q.push(Query {args: nargs, ret: nret});
+    //         generalize_queries(nargs, nret, l+1, q);
+    //     }
+    // }
 }
 
 #[cfg(test)]
@@ -128,7 +129,7 @@ mod tests {
     fn test_search_bucket() {
         let def = @Definition { name: ~"foo", path: ~"foo",
             desc: ~"", anchor: ~"function-foo", args: ~[],
-            ret: Arg {name: ~"()", inner: ~[]}, signature: ~"fn foo()"};
+            ret: Basic(~"()"), signature: ~"fn foo()"};
         let bucket = Bucket {defs: ~[def]};
         let query = Query { args: ~[], ret: copy def.ret };
         assert search_bucket(&bucket, &query) == ~[def];
@@ -141,7 +142,7 @@ mod tests {
     fn test_search_trie() {
         let def = @Definition { name: ~"foo", path: ~"foo",
             desc: ~"", anchor: ~"function-foo", args: ~[],
-            ret: Arg {name: ~"()", inner: ~[]}, signature: ~"fn foo()"};
+            ret: Basic(~"()"), signature: ~"fn foo()"};
         let trie =
             @Trie { children: HashMap(),
                     defs: ~[def]};
@@ -167,16 +168,16 @@ mod tests {
 
     #[test]
     fn test_generalize_queries() {
-        let args = ~[Arg {name: ~"A", inner: ~[]},
-                     Arg {name: ~"str", inner: ~[]},
-                     Arg {name: ~"A", inner: ~[]}];
-        let ret = Arg {name: ~"A", inner: ~[]};
+        let args = ~[Constrained(~"A", ~[]),
+                     Basic(~"str"),
+                     Constrained(~"A", ~[])];
+        let ret = Constrained(~"A", ~[]);
         let mut queries = ~[];
         generalize_queries(args, ret, 1, &mut queries);
-        assert queries == ~[Query { args: ~[Arg { name: ~"A", inner: ~[] },
-                                            Arg { name: ~"B", inner: ~[] },
-                                            Arg { name: ~"A", inner: ~[] }],
-                                    ret: Arg { name: ~"A", inner: ~[] } }];
+        assert queries == ~[Query { args: ~[Constrained(~"A", ~[]),
+                                            Constrained(~"B", ~[]),
+                                            Constrained(~"A", ~[])],
+                                    ret: Constrained(~"A", ~[])}];
     }
 
 }
