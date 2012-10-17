@@ -4,15 +4,7 @@ use parse::*;
 
 // query builds Querys from whatever was passed in on the commandline
 pub fn query(q: ~str) -> ~[Query] {
-    // let parts = vec::map(str::split_str(q, "->"), |x| { str::trim(*x) });
-    // let rv = if vec::len(parts) < 2 {
-    //     @Basic(~"()")
-    // } else {
-    //     parse_arg(&parts[1])
-    // };
-    // let ars = vec::map(split_arguments(&parts[0]),
-    //                    |x| { parse_arg(&trim_sigils(*x)) });
-    let (args, ret, l) = parse_signature(q, None, true);//canonicalize_args(ars, rv);
+    let (args, ret, l) = parse_signature(q, None, true);
     // now create more general variants
     let mut queries = ~[Query {args: args, ret: ret}];
 
@@ -101,25 +93,36 @@ fn search_trie(t: @Trie, n: &mut ~str, q: &~str, r: &mut ~[@Definition]) {
 // note that how we are doing it now, it will generate (lots of) duplicate
 // queries. l is the next available polymorphic variable letter
 fn generalize_queries(args: ~[@Arg], ret: @Arg, l: uint, q: &mut ~[Query]) {
-
-    // let arg_names = HashMap();
-    // fn get_arg_names(a: &Arg, n: &HashMap<@~str,()>) {
-    //     n.insert(@copy a.name,());
-    //     vec::map(a.inner, |a| {get_arg_names(a, n)});
-    // }
-    // vec::map(args, |a| {get_arg_names(a,&arg_names)});
-    // get_arg_names(&ret,&arg_names);
-    // // now for all that aren't polymorphic, make them and
-    // // search recursively. note that t
-    // for arg_names.each_key |n| {
-    //     if n.len() != 1 && n != @~"[]" && n != @~"()" {
-    //         let nn = letters(l);
-    //         let nargs = vec::map(args, |a| { replace_arg_name(a,n,nn) });
-    //         let nret = replace_arg_name(&ret,n,nn);
-    //         q.push(Query {args: nargs, ret: nret});
-    //         generalize_queries(nargs, nret, l+1, q);
-    //     }
-    // }
+    let arg_names = HashMap();
+    fn get_arg_names(a: @Arg, n: &HashMap<@~str,()>) {
+        match a {
+            @Basic(ref name) => {n.insert(@copy *name,());},
+            @Vec(inner) => get_arg_names(inner, n),
+            @Tuple(inner) => {vec::map(inner, |a| {get_arg_names(*a, n)});},
+            @Parametric(base,inner) => {
+                get_arg_names(base, n);
+                vec::map(inner, |a| {get_arg_names(*a, n)});
+            },
+            @Function(args,ret) => {
+                get_arg_names(ret, n);
+                vec::map(args, |a| {get_arg_names(*a, n)});
+            },
+            @Constrained(_,_) => {}
+        }
+        ;
+    }
+    vec::map(args, |a| {get_arg_names(*a,&arg_names)});
+    get_arg_names(ret,&arg_names);
+    // now for all that aren't polymorphic, make them and
+    // search recursively.
+    for arg_names.each_key |n| {
+        let old = @Basic(*n);
+        let nn = @Constrained(*letters(l), ~[]);
+        let nargs = vec::map(args, |a| { replace_arg(*a,old,nn) });
+        let nret = replace_arg(ret,old,nn);
+        q.push(Query {args: nargs, ret: nret});
+        generalize_queries(nargs, nret, l+1, q);
+    }
 }
 
 #[cfg(test)]
