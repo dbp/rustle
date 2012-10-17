@@ -4,15 +4,15 @@ use parse::*;
 
 // query builds Querys from whatever was passed in on the commandline
 pub fn query(q: ~str) -> ~[Query] {
-    let parts = vec::map(str::split_str(q, "->"), |x| { str::trim(*x) });
-    let rv = if vec::len(parts) < 2 {
-        @Basic(~"()")
-    } else {
-        parse_arg(&parts[1])
-    };
-    let ars = vec::map(split_arguments(&parts[0]),
-                       |x| { parse_arg(&trim_sigils(*x)) });
-    let (args, ret, l) = canonicalize_args(ars, rv);
+    // let parts = vec::map(str::split_str(q, "->"), |x| { str::trim(*x) });
+    // let rv = if vec::len(parts) < 2 {
+    //     @Basic(~"()")
+    // } else {
+    //     parse_arg(&parts[1])
+    // };
+    // let ars = vec::map(split_arguments(&parts[0]),
+    //                    |x| { parse_arg(&trim_sigils(*x)) });
+    let (args, ret, l) = parse_signature(q, None, true);//canonicalize_args(ars, rv);
     // now create more general variants
     let mut queries = ~[Query {args: args, ret: ret}];
 

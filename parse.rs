@@ -27,6 +27,49 @@ pub fn split_arguments(a: &~str) -> ~[~str] {
     return arg_strs;
 }
 
+// parse_signature takes a string of a function and returns a list of the
+// argument types, and the return type
+fn parse_signature(arg_list: ~str, self: Option<~str>, canonicalize: bool)
+        -> (~[@Arg], @Arg, uint) {
+    let self_list = match self {
+        None => ~[],
+        Some(s) => ~[parse_arg(&trim_sigils(s))]
+    };
+    let args_ret = str::split_str(arg_list, "->");
+    let mut arlen = vec::len(args_ret);
+    let ret;
+    if vec::len(args_ret) == 1 {
+        arlen += 1;
+        ret = @Basic(~"()");
+    } else {
+        ret = parse_arg(&str::trim(args_ret[arlen-1]));
+    }
+    let arg_str =
+        trim_parens(str::connect(vec::view(args_ret, 0, arlen-1), "->"));
+    let args;
+    if str::len(arg_str) == 0 {
+        args = ~[];
+    } else {
+        let arg_strs = vec::map(split_arguments(&arg_str), |a| {
+            let t = str::splitn_char(*a, ':', 1);
+            if t.len() > 1 {
+                copy t[1]
+            } else {
+                copy t[0]
+            }
+        });
+        args = vec::map(arg_strs, |x| {
+                parse_arg(&trim_sigils(*x))
+            } );
+    }
+    if canonicalize {
+        return canonicalize_args(vec::append(self_list,args), ret);
+    } else {
+        return (vec::append(self_list,args), ret, 0);
+    }
+
+}
+
 // parse_arg takes a string and turns it into an Arg
 pub fn parse_arg(su: &~str) -> @Arg {
     let s = trim_sigils(*su);
@@ -45,16 +88,32 @@ pub fn parse_arg(su: &~str) -> @Arg {
                 vs = drop_modifiers(&vs);
                 return @Vec(parse_arg(&vs));
             }
-            '(' => {
+            // want tuples, but not unit
+            '(' if str::len(s) > 2 => {
                 // we want to fail if there is no matching paren
                 let end = option::get(&str::rfind_char(s, ')'));
                 let inn = str::trim(str::slice(s, 1, end));
                 let inner = vec::map(split_arguments(&inn), |a| { parse_arg(a) });
                 return @Tuple(inner);
             }
+            // a function type
+            'f' if str::char_at(s,1) == 'n'
+                && !char::is_alphanumeric(str::char_at(s,2)) => {
+                let (args, ret, _n) = parse_signature(s, None, false);
+                return @Function(args, ret);
+            }
             _ => {
-                // normal type
-                return @Basic(copy s);
+                if s.len() == 1 {
+                    // assume this is a constrained type without constraints.
+                    // note that this is to allow shorthand, so you don't need to write
+                    // <A:>Option<A> -> A
+                    // to make it fit the pattern
+                    // <A: Copy, B: Copy> Option<A> -> B
+                    return @Constrained(copy s, ~[]);
+                } else {
+                    // basic type
+                    return @Basic(copy s);
+                }
             }
         }
     } else {

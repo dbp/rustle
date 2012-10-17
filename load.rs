@@ -54,7 +54,7 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
             let self = match str_cast(object.get(&~"self")) {
                 ~"" => None, s => Some(copy s)
             };
-            let (args, rv, l) = load_args(copy ty,self);
+            let (args, rv, l) = parse_signature(copy ty,self,true);
             let canonical =
                 @Definition { name: str_cast(object.get(&~"name")),
                               path: str_cast(object.get(&~"path")),
@@ -94,39 +94,6 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
         }
     }
     return definitions;
-}
-
-// load_args takes a string of a function and returns a list of the
-// argument types, and the return type
-fn load_args(arg_list: ~str, self: Option<~str>) -> (~[@Arg], @Arg, uint) {
-    let self_list = match self {
-        None => ~[],
-        Some(s) => ~[parse_arg(&trim_sigils(s))]
-    };
-    let args_ret = str::split_str(arg_list, "->");
-    let mut arlen = vec::len(args_ret);
-    let ret;
-    if vec::len(args_ret) == 1 {
-        arlen += 1;
-        ret = @Basic(~"()");
-    } else {
-        ret = parse_arg(&str::trim(args_ret[arlen-1]));
-    }
-    let arg_str =
-        trim_parens(str::connect(vec::view(args_ret, 0, arlen-1), "->"));
-    let args;
-    if str::len(arg_str) == 0 {
-        args = ~[];
-    } else {
-        let arg_strs = vec::map(split_arguments(&arg_str), |a| {
-            let t = str::splitn_char(*a, ':', 1);
-            copy t[1]
-        });
-        args = vec::map(arg_strs, |x| {
-                parse_arg(&trim_sigils(*x))
-            } );
-    }
-    return canonicalize_args(vec::append(self_list,args), ret);
 }
 
 // bucket_sort takes definitions and builds the Data structure, by putting
