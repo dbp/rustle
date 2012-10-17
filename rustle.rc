@@ -8,6 +8,13 @@
 #[license = "MIT"];
 #[crate_type = "bin"];
 
+extern mod std;
+use std::json;
+use std::json::*;
+use std::map;
+use std::map::HashMap;
+use std::sort;
+use io::ReaderUtil;
 
 mod types;
 mod parse;

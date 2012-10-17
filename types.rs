@@ -1,6 +1,5 @@
 //! This file contains type definitions
 
-extern mod std;
 use std::treemap::*;
 type Set<T> = TreeMap<T,()>;
 

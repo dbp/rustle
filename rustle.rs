@@ -1,11 +1,3 @@
-extern mod std;
-use std::json;
-use std::json::*;
-use std::map;
-use std::map::HashMap;
-use std::sort;
-use io::ReaderUtil;
-
 use types::*;
 
 fn main() {
