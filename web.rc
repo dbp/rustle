@@ -1,0 +1,25 @@
+#[link(name = "rustle-web",
+       vers = "0.4",
+       uuid = "d3f1e2b3-cb81-4254-b7ea-dbdbf5376400",
+       url = "https://github.com/dbp/rustle",
+       author = "dbp")];
+
+#[comment = "Rust API search - Web frontend"];
+#[license = "MIT"];
+#[crate_type = "bin"];
+
+extern mod std;
+extern mod zmq;
+extern mod mongrel2;
+
+use std::json;
+use std::json::*;
+use std::map;
+use std::map::HashMap;
+use std::sort;
+use io::ReaderUtil;
+
+mod types;
+mod parse;
+mod load;
+mod query;

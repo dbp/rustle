@@ -14,6 +14,11 @@ usage
 
 (Alternatively, you can run it with single searches, like `./rustle "Option<A> -> bool`, but it will have to load in the data for each query, so the interactive mode is a lot faster. Also - using a readline wrapper like `rlwrap` is recommended, so you get line editing and history. `rlwrap ./rustle` will work.).
 
+web
+---
+
+I've written a very minimal web frontend, using mongrel2 and @erickt's libraries to connect with it. It lives in web.rc/web.rs, and it depends upon `mongrel2`, `zmq`, and `tnetstring` being installed from cargo. It also obviously requires zeromq and mongrel2 to run.
+
 how
 ---
 Right now the data is all scraped out of the documentation that rustdoc creates. We then parse out the arguments and return types (and self types for methods), discarding pointer types and some other stuff (like mut/const inside vector types). We then replace polymorphic type variables (single uppercase letters, by our assumption) in a way that is consistent (so, for example, you can search for `Option<A> -> A` and match against `Option<T> -> T`), and finally store all of this based on the number of arguments that a function has (stored this way to make searching faster). We also create some variants in the case of polymorphic functions - so for example, `Either<A,B> -> A` will also be recorded as `Either<A,A> -> A`.
