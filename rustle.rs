@@ -61,7 +61,7 @@ fn run_search(q: ~str, d: &Data) {
 }
 
 fn usage() {
-    io::println(~"Rustle, a Rust api search, by type signature (or name), v. 0.1.");
+    io::println(~"Rustle, a Rust api search, by type signature (or name), v. 0.4");
     io::println(~"Usage: rustle -h | --help             -- this message");
     io::println(~"       rustle                         -- start interactive mode");
     io::println(~"       rustle \"[(A,B)] -> ([A],[B])\"  -- query directly");

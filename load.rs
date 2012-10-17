@@ -64,28 +64,28 @@ fn load_obj(obj: &Json) -> ~[(@Definition, bool)] {
                               ret: rv,
                               signature: ty };
             definitions = ~[(canonical,true)];
-            // if l > 1 {
-            //     // generate variants. for now, we just generate one where
-            //     // all the type variables are the same. the general case has
-            //     // exponential variations, and furthermore this type of
-            //     // solution wouldn't make sense. This should cover most
-            //     // of the cases without getting too crazy.
-            //     let mut n = 1;
-            //     let mut vargs = args;
-            //     let mut ret = rv;
-            //     while n < l {
-            //         let zl = letters(0);
-            //         let nl = letters(n);
-            //         vargs = vec::map(vargs, |a| {
-            //             replace_arg(a, nl, zl)
-            //         });
-            //         ret = replace_arg_name(&ret, nl, zl);
-            //         n += 1;
-            //     }
-            //     definitions.push((@Definition {args: vargs,
-            //                                  ret: ret,
-            //                                  ..*canonical}, false));
-            // }
+            if l > 1 {
+                // generate variants. for now, we just generate one where
+                // all the type variables are the same. the general case has
+                // exponential variations, and furthermore this type of
+                // solution wouldn't make sense. This should cover most
+                // of the cases without getting too crazy.
+                let mut n = 1;
+                let mut vargs = copy args;
+                let mut ret = copy rv;
+                while n < l {
+                    let zl = @Constrained(*letters(0), ~[]);
+                    let nl = @Constrained(*letters(n), ~[]);
+                    vargs = vec::map(vargs, |a| {
+                        replace_arg(*a, nl, zl)
+                    });
+                    ret = replace_arg(ret, nl, zl);
+                    n += 1;
+                }
+                definitions.push((@Definition {args: vargs,
+                                               ret: ret,
+                                             ..*canonical}, false));
+            }
         }
         _ => {
             io::println("json definitions must be objects");

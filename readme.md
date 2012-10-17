@@ -2,7 +2,7 @@ about
 -----
 rustle is an api search tool inspired by [Hoogle](http://www.haskell.org/hoogle/). It allows you to search the core api (and hopefully std soon) by function signatures. An example would be if you were wondering how to get the value out of an Either, you could search
 `Either<A,B> -> A` and you would get the following result: `core::either::unwrap_left: fn unwrap_left<T, U>(eith: Either<T, U>) -> T - Retrieves the value in the left branch.`
-`Fails if the either is Right.` Right now it is in very early stages - a proof of concept (though a working one) as much as anything else.
+`Fails if the either is Right.` Similarly, `([A], fn(A)->B) -> [B]` returns `vec::map` (and a few variants).
 
 usage
 -----
@@ -24,13 +24,12 @@ We will also search by function name if the query does not have a `->` or `,` - 
 
 limitations
 -----------
-There are three main problems:
+There are two main problems:
 
 1. Lack of heuristics in general for search - there is no weighting, and the only way that results are weighted is by the order they are added to the data structures, which is based on the order of files processed by the scraper.
 
 2. No understanding of traits. All polymorphic parameters (identified by being a single capital letter) are treated as the same. This is a major limitation, and because of this (and the lack of heuristics), we currently don't include trait implementations in the search results, because they added a lot of results that weren't incredibly useful. Note that we do include methods defined on specific types (so it isn't `impl` that we ignore, but trait impls).
 
-3. We don't currently understand function arguments, so they should match if you type them in verbatim, but that kind of defeats the purpose of this whole thing. This should be relatively easy to fix.
 
 future
 ------
@@ -47,6 +46,7 @@ Longer term:
 
 changelog
 ---------
+0.4.1 - adding support for higher order functions, and refactoring argument types to support traits in the future.
 0.4 - initial version. major version numbers will be tied to rust version.
 
 authors
