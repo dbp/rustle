@@ -17,7 +17,7 @@ usage
 web
 ---
 
-I've written a very minimal web frontend, using mongrel2 and @erickt's libraries to connect with it. It lives in web.rc/web.rs, and it depends upon `mongrel2`, `zmq`, and `tnetstring` being installed from cargo. It also obviously requires zeromq and mongrel2 to run.
+I've written a very minimal web frontend, using mongrel2 and @erickt's libraries to connect with it. It lives in web.rc/web.rs, and it depends upon `mongrel2`, `zmq`, and `tnetstring` being installed from cargo. It also obviously requires zeromq and mongrel2 (using web.conf) to run.
 
 how
 ---
