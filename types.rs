@@ -1,7 +1,7 @@
 //! This file contains type definitions
 
 use std::treemap::*;
-type Set<T> = TreeMap<T,()>;
+type Set<T: Copy Ord> = TreeMap<T,()>;
 
 use core::cmp::{Eq, Ord};
 
