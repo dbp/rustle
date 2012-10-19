@@ -51,7 +51,10 @@ Longer term:
 
 changelog
 ---------
+0.4.2 - adding basic web frontend, putting online at http://lab.dbpmail.net/rustle/
+
 0.4.1 - adding support for higher order functions, and refactoring argument types to support traits in the future.
+
 0.4 - initial version. major version numbers will be tied to rust version.
 
 authors

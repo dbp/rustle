@@ -1,5 +1,5 @@
 #[link(name = "rustle",
-       vers = "0.4",
+       vers = "0.4.2",
        uuid = "fdc4a956-acca-4eae-8372-b3ec62d5caa0",
        url = "https://github.com/dbp/rustle",
        author = "dbp")];
