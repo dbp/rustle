@@ -2,6 +2,19 @@ use std::net::url;
 
 use io::WriterUtil;
 
+use types::Definition;
+
+fn strip_brackets(s:~str) -> ~str {
+    str::replace(str::replace(s, ~"<", ~"&lt;"), ~">", ~"&gt;")
+}
+
+fn format_def(d: &Definition) -> ~str {
+    fmt!("<a href='http://http://dl.rust-lang.org/doc/%s.html#%s'\
+        target='blank'>%s::%s</a> - %s - %s",
+        str::replace(d.path, ~"::", ~"/"),d.anchor, d.path,
+             d.name, d.signature, d.desc)
+}
+
 fn main() {
     let ctx = match zmq::init(1) {
         Ok(ctx) => ctx,
@@ -28,9 +41,6 @@ fn main() {
         let resp = match mq {
             Some(q) => {
                 do io::with_str_writer |w| {
-                    let strip_brackets = |s:~str| {
-                        str::replace(str::replace(s, ~"<", ~"&lt;"), ~">", ~"&gt;")
-                    };
                     // do search
                     if q.contains(~"->") || q.contains(~",") {
                         // this is a search by type, for functions
