@@ -8,8 +8,8 @@ fn strip_brackets(s:~str) -> ~str {
     str::replace(str::replace(s, ~"<", ~"&lt;"), ~">", ~"&gt;")
 }
 
-fn format_def(d: &Definition) -> ~str {
-    fmt!("<a href='http://http://dl.rust-lang.org/doc/%s.html#%s'\
+fn format_def(d: @Definition) -> ~str {
+    fmt!("<a href='http://dl.rust-lang.org/doc/%s.html#%s'\
         target='blank'>%s::%s</a> - %s - %s",
         str::replace(d.path, ~"::", ~"/"),d.anchor, d.path,
              d.name, d.signature, d.desc)
@@ -49,14 +49,14 @@ fn main() {
                         // search
                         for query::search_type(queries, &data).each |d| {
                             w.write_line("<pre><code>");
-                            w.write_line(strip_brackets(copy d.show()));
+                            w.write_line(format_def(*d));
                             w.write_line("</code></pre>")
                         }
                     } else {
                         // this is a search by name
                         for query::search_name(q, &data).each |d| {
                             w.write_line("<pre><code/>");
-                            w.write_line(strip_brackets(copy d.show()));
+                            w.write_line(format_def(*d));
                             w.write_line("</code></pre>");
                         }
                     }
