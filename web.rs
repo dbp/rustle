@@ -12,7 +12,7 @@ fn format_def(d: @Definition) -> ~str {
     fmt!("<a href='http://dl.rust-lang.org/doc/%s.html#%s'\
         target='blank'>%s::%s</a> - %s - %s",
         str::replace(d.path, ~"::", ~"/"),d.anchor, d.path,
-             d.name, d.signature, d.desc)
+             d.name, strip_brackets(d.signature), strip_brackets(d.desc))
 }
 
 fn main() {
