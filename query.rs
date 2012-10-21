@@ -132,7 +132,7 @@ mod tests {
     fn test_search_bucket() {
         let def = @Definition { name: ~"foo", path: ~"foo",
             desc: ~"", anchor: ~"function-foo", args: ~[],
-            ret: Basic(~"()"), signature: ~"fn foo()"};
+            ret: @Basic(~"()"), signature: ~"fn foo()"};
         let bucket = Bucket {defs: ~[def]};
         let query = Query { args: ~[], ret: copy def.ret };
         assert search_bucket(&bucket, &query) == ~[def];
@@ -145,7 +145,7 @@ mod tests {
     fn test_search_trie() {
         let def = @Definition { name: ~"foo", path: ~"foo",
             desc: ~"", anchor: ~"function-foo", args: ~[],
-            ret: Basic(~"()"), signature: ~"fn foo()"};
+            ret: @Basic(~"()"), signature: ~"fn foo()"};
         let trie =
             @Trie { children: HashMap(),
                     defs: ~[def]};
@@ -171,16 +171,16 @@ mod tests {
 
     #[test]
     fn test_generalize_queries() {
-        let args = ~[Constrained(~"A", ~[]),
-                     Basic(~"str"),
-                     Constrained(~"A", ~[])];
-        let ret = Constrained(~"A", ~[]);
+        let args = ~[@Constrained(~"A", ~[]),
+                     @Basic(~"str"),
+                     @Constrained(~"A", ~[])];
+        let ret = @Constrained(~"A", ~[]);
         let mut queries = ~[];
         generalize_queries(args, ret, 1, &mut queries);
-        assert queries == ~[Query { args: ~[Constrained(~"A", ~[]),
-                                            Constrained(~"B", ~[]),
-                                            Constrained(~"A", ~[])],
-                                    ret: Constrained(~"A", ~[])}];
+        assert queries == ~[Query { args: ~[@Constrained(~"A", ~[]),
+                                            @Constrained(~"B", ~[]),
+                                            @Constrained(~"A", ~[])],
+                                    ret: @Constrained(~"A", ~[])}];
     }
 
 }

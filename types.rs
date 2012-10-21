@@ -265,19 +265,19 @@ mod tests {
         let v2 : ~[uint] = ~[2,1,4];
         assert set_equals(&set_from_vec(&v1), &set_from_vec(&v2));
 
-        let u1 = ~[Basic(~"uint"),
-                   Vec(Basic(~"A"),
-                   Basic(~"A"))];
-        let u2 = ~[Vec(Basic(~"A")),
-                   Basic(~"A"),
-                   Basic(~"uint")];
+        let u1 = ~[@Basic(~"uint"),
+                   @Vec(@Basic(~"A")),
+                   @Basic(~"A")];
+        let u2 = ~[@Vec(@Basic(~"A")),
+                   @Basic(~"A"),
+                   @Basic(~"uint")];
         assert set_equals(&set_from_vec(&u1), &set_from_vec(&u2));
     }
 
     #[test]
     fn arg_eq() {
-        assert Basic(~"uint") == Basic(~"uint");
-        assert Parametric(Basic(~"uint"), ~[Basic(~"A")]) != Basic(~"A");
+        assert @Basic(~"uint") == @Basic(~"uint");
+        assert @Parametric(@Basic(~"uint"), ~[@Basic(~"A")]) != @Basic(~"A");
     }
 
     #[test]
@@ -285,7 +285,7 @@ mod tests {
         let d =
             Definition { name: ~"foo", path: ~"core::foo", anchor: ~"fun-foo",
                          desc: ~"foo does bar", args: ~[],
-                         ret: Basic(~"int"),
+                         ret: @Basic(~"int"),
                          signature: ~"fn foo() -> int" };
         assert d.show() == ~"core::foo::foo - fn foo() -> int - foo does bar";
     }

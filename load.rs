@@ -150,23 +150,5 @@ fn add_name(t: @Trie, n: &mut ~str, d: @Definition) {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn test_load_args() {
-        assert load_args(~"fn ne(other: & ~str) -> bool",
-                         Some(~"& str")) ==
-                (~[Basic(~"str"), Basic(~"str")], Basic(~"bool"), 0);
-        assert load_args(~"fn foo(bar: Option<T>) -> bool",
-                         None) ==
-                (~[Parametric(~"Option",~[Basic(~"A")])],
-                 Basic(~"bool"),
-                 1);
-    }
-    fn test_method_args() {
-        assert load_args(~"fn ne(other: & Option<T>) -> bool",
-                         Some(~"& str")) ==
-                (~[Basic(~"str"),
-                   Basic(~"str")],
-                 Basic(~"bool"),
-                 0);
-    }
+
 }

@@ -201,7 +201,7 @@ pub fn replace_arg(a: @Arg, old: @Arg, new: @Arg) -> @Arg {
 fn drop_modifiers(s: &~str) -> ~str {
     let end = s.len();
     for [~"const ", ~"mut "].each |m| {
-        if option::is_some(&str::find_str(*s, *m)) {
+        if str::starts_with(*s, *m) {
             return str::trim(str::slice(*s, str::len(*m), end));
         }
     }
@@ -234,16 +234,39 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_signature() {
+        assert parse_signature(~"fn ne(other: & ~str) -> bool",
+                         Some(~"& str"), false) ==
+                (~[@Basic(~"str"), @Basic(~"str")], @Basic(~"bool"), 0);
+        assert parse_signature(~"fn foo(bar: Option<T>) -> bool",
+                         None, true) ==
+                (~[@Parametric(@Basic(~"Option"),~[@Constrained(~"A", ~[])])],
+                 @Basic(~"bool"),
+                 1);
+    }
+
+    #[test]
+    fn test_method_args() {
+        assert parse_signature(~"fn ne(other: & str) -> bool",
+                         Some(~"& str"), false) ==
+                (~[@Basic(~"str"),
+                   @Basic(~"str")],
+                 @Basic(~"bool"),
+                 0);
+    }
+
+    #[test]
     fn test_parse_arg() {
-        assert parse_arg(&~"~str") == Basic(~"str");
-        assert parse_arg(&~"@str") == Basic(~"str");
-        assert parse_arg(&~"&@str") == Basic(~"str");
+        assert parse_arg(&~"~str") == @Basic(~"str");
+        assert parse_arg(&~"@str") == @Basic(~"str");
+        assert parse_arg(&~"&@str") == @Basic(~"str");
         assert parse_arg(&~"Option<~str>") ==
-            Parametric(~"Option", ~[Basic(~"str")]);
+            @Parametric(@Basic(~"Option"), ~[@Basic(~"str")]);
         assert parse_arg(&~"~[uint]") ==
-            Vec(Basic(~"uint"));
+            @Vec(@Basic(~"uint"));
         assert parse_arg(&~"(uint, ~str)") ==
-            Tuple(~[Basic(~"uint"), Basic(~"str")]);
+            @Tuple(~[@Basic(~"uint"), @Basic(~"str")]);
+        assert parse_arg(&~"[const T]") == @Vec(@Constrained(~"T", ~[]));
     }
 
     #[test]
