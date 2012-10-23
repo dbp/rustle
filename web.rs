@@ -73,7 +73,7 @@ fn main() {
                 .</p><p>Query form: (arg1,arg2) -> ret.</p><p>Examples: ([A]) -> A,\
                  (Option&lt;A&gt; -> A), ([A], fn(A)->B) -> [B]</p>\
                  <form><input type='text' name='q' size='50'/><input \
-                type='submit'/></form>%s<hr/><div>%s</div></body></html>", if resp.len() > 0
+                type='submit' value='Rustle Up'/></form>%s<hr/><div>%s</div></body></html>", if resp.len() > 0
                 {~"query: " + mq.get()} else { ~"" },  resp);
 
         conn.reply_http(&request,
