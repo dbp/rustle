@@ -71,7 +71,7 @@ fn main() {
             fmt!("<html><body><p>This is rustle. Check the code at <a \
                 href='http://github.com/dbp/rustle'>github.com/dbp/rustle</a>\
                 .</p><p>Query form: (arg1,arg2) -> ret.</p><pre><code>Examples: ([A]) -> A, \
-                 Option&lt;A&gt; -> A, ([A], fn(A)->B) -> [B]</code></pre>\
+                 (Option&lt;A&gt;) -> A, ([A], fn(A)->B) -> [B]</code></pre>\
                  <form><input type='text' name='q' size='50'/><input \
                 type='submit' value='Rustle Up'/></form>%s<hr/><div>%s</div></body></html>", if resp.len() > 0
                 {~"query: " + mq.get()} else { ~"" },  resp);
