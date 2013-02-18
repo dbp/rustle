@@ -51,7 +51,7 @@ Longer term:
 
 changelog
 ---------
-0.4.2 - adding basic web frontend, putting online at http://lab.dbpmail.net/rustle/
+0.4.2 - adding basic web frontend, putting online at http://lab.dbpmail.net/rustle/ (offline as of 2/2013 - it's now out of date and I don't have time to maintain it).
 
 0.4.1 - adding support for higher order functions, and refactoring argument types to support traits in the future.
 
