@@ -1,3 +1,8 @@
+out of date
+-----------
+
+This supports a quite old version of rust, so it isn't really useful anymore. It could certainly be updated, but I haven't yet (and don't have immediate plans to).
+
 about
 -----
 rustle is an api search tool inspired by [Hoogle](http://www.haskell.org/hoogle/). It allows you to search the core api (and hopefully std soon) by function signatures. An example would be if you were wondering how to get the value out of an Either, you could search
